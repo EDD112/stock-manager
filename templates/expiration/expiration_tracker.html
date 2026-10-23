@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Expiration Tracker – StockManager{% endblock %}
+{% block page_title %}Expiration Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2>Expiration Tracker</h2>
+        <p>Batch-level expiry monitoring. Each row represents one stock batch.</p>
+    </div>
+    <div class="dropdown">
+        <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="fas fa-file-export me-1"></i>Export Expiration Report
+        </button>
+        <ul class="dropdown-menu">
+            <li>
+                <a class="dropdown-item" href="{% url 'export_expiration_excel' %}">
+                    <i class="fas fa-file-excel me-2 text-success"></i>Export to Excel (.xlsx)
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{% url 'export_expiration_pdf' %}">
+                    <i class="fas fa-file-pdf me-2 text-danger"></i>Export to PDF (.pdf)
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<!-- SUMMARY CARDS -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6">
+        <div class="stat-card stat-red">
+            <i class="fas fa-skull-crossbones stat-icon"></i>
+            <div class="stat-value">{{ expired_batches.count }}</div>
+            <div class="stat-label">Expired Batches</div>
+        </div>
+    </div>
+    <div class="col-sm-6">
+        <div class="stat-card stat-orange">
+            <i class="fas fa-exclamation-triangle stat-icon"></i>
+            <div class="stat-value">{{ expiring_batches.count }}</div>
+            <div class="stat-label">Batches Expiring Within 7 Days</div>
+        </div>
+    </div>
+</div>
+
+<!-- EXPIRED BATCHES -->
+<div class="card mb-4">
+    <div class="card-header" style="color:#dc2626;">
+        <i class="fas fa-skull-crossbones me-2"></i>Expired Batches
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr><th>Product</th><th>Category</th><th>Batch #</th><th>Qty</th><th>Expiry Date</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for batch in expired_batches %}
+                    <tr style="background:rgba(220,38,38,.04);">
+                        <td><strong>{{ batch.product.name }}</strong></td>
+                        <td>{{ batch.product.category.name }}</td>
+                        <td class="text-muted small">#{{ batch.pk }}</td>
+                        <td>{{ batch.quantity }}</td>
+                        <td class="text-danger fw-600">{{ batch.expiry_date }}</td>
+                        <td><span class="status-badge badge-expired">Expired</span></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'product_detail' batch.product.pk %}" class="btn btn-sm btn-outline-secondary" title="View Product">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'remove_stock' batch.product.pk %}" class="btn btn-sm btn-outline-danger" title="Remove Stock">
+                                    <i class="fas fa-minus"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="fas fa-check-circle text-success me-2"></i>No expired batches!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- EXPIRING SOON BATCHES -->
+<div class="card">
+    <div class="card-header" style="color:#d97706;">
+        <i class="fas fa-exclamation-triangle me-2"></i>Batches Expiring Soon (within 7 days)
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr><th>Product</th><th>Category</th><th>Batch #</th><th>Qty</th><th>Expiry Date</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for batch in expiring_batches %}
+                    <tr style="background:rgba(217,119,6,.04);">
+                        <td><strong>{{ batch.product.name }}</strong></td>
+                        <td>{{ batch.product.category.name }}</td>
+                        <td class="text-muted small">#{{ batch.pk }}</td>
+                        <td>{{ batch.quantity }}</td>
+                        <td class="fw-600" style="color:#d97706;">{{ batch.expiry_date }}</td>
+                        <td><span class="status-badge badge-expiring">Expiring Soon</span></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'product_detail' batch.product.pk %}" class="btn btn-sm btn-outline-secondary" title="View Product">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'add_stock' batch.product.pk %}" class="btn btn-sm btn-outline-success" title="Add New Batch">
+                                    <i class="fas fa-plus"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="fas fa-check-circle text-success me-2"></i>No batches expiring in the next 7 days.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} Category – StockManager{% endblock %}
+{% block page_title %}{{ action }} Category{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ action }} Category</h2>
+    <p>Assign a type from the list, or <a href="{% url 'category_type_add' %}">create a new type first</a>.</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} d-flex align-items-start gap-2 mb-3">
+                <i class="fas {% if message.tags == 'error' %}fa-exclamation-circle{% else %}fa-check-circle{% endif %} mt-1"></i>
+                <div>
+                    {{ message }}
+                    {% if message.tags == 'error' %}
+                    <div class="mt-2">
+                        <a href="{% url 'category_list' %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-list me-1"></i>View All Categories
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="card">
+            <div class="card-header"><i class="fas fa-tag me-2 text-primary"></i>Category Details</div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label">Category Name <span class="text-danger">*</span></label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div class="text-danger small mt-1">
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ form.name.errors.0 }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Category Type <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-2">
+                            {{ form.category_type }}
+                            <a href="{% url 'category_type_add' %}" class="btn btn-outline-primary" title="Add new type" target="_blank">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                        </div>
+                        <div class="form-text">
+                            Don't see the type you need?
+                            <a href="{% url 'category_type_add' %}" target="_blank">Create a custom type →</a>
+                        </div>
+                        {% if form.category_type.errors %}
+                        <div class="text-danger small mt-1">{{ form.category_type.errors.0 }}</div>
+                        {% endif %}
+
+                        <!-- Live type preview -->
+                        <div id="typePreview" class="mt-2 d-none align-items-center gap-2">
+                            <div id="previewIconBox" style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:.8rem;"></div>
+                            <span id="previewBadge" class="status-badge"></span>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Description <span class="text-muted small">(optional)</span></label>
+                        {{ form.description }}
+                    </div>
+
+                    <p class="text-muted small mb-3"><span class="text-danger">*</span> Required fields.</p>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            {% if action == 'Edit' %}Update Category{% else %}Save Category{% endif %}
+                        </button>
+                        <a href="{% url 'category_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Existing types reference -->
+        {% if cat_types %}
+        <div class="card mt-3">
+            <div class="card-header"><i class="fas fa-layer-group me-2 text-primary"></i>Available Types</div>
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for ct in cat_types %}
+                    <span class="status-badge" style="background:{{ ct.color }}22;color:{{ ct.color }};border:1px solid {{ ct.color }}44;cursor:default;">
+                        <i class="fas {{ ct.icon }} me-1"></i>{{ ct.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const typeData = {};
+{% for ct in cat_types %}
+typeData["{{ ct.pk }}"] = { name: "{{ ct.name }}", color: "{{ ct.color }}", icon: "{{ ct.icon }}" };
+{% endfor %}
+
+const sel     = document.getElementById('id_category_type');
+const preview = document.getElementById('typePreview');
+const iconBox = document.getElementById('previewIconBox');
+const badge   = document.getElementById('previewBadge');
+
+function updatePreview() {
+    const val = sel.value;
+    if (!val || !typeData[val]) { preview.classList.add('d-none'); return; }
+    const d = typeData[val];
+    preview.classList.remove('d-none');
+    preview.classList.add('d-flex');
+    iconBox.style.background = d.color;
+    iconBox.innerHTML = `<i class="fas ${d.icon}"></i>`;
+    badge.textContent = d.name;
+    badge.style.cssText = `background:${d.color}22;color:${d.color};border:1px solid ${d.color}44;`;
+}
+sel.addEventListener('change', updatePreview);
+updatePreview();
+</script>
+{% endblock %}

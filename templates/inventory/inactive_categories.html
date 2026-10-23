@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% block title %}Inactive Categories – StockManager{% endblock %}
+{% block page_title %}Inactive Categories{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start">
+    <div>
+        <h2>Inactive Categories</h2>
+        <p>Categories that have been deactivated. Restoring a category also restores all its products.</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if total_count %}
+        <a href="{% url 'clear_inactive_categories' %}" class="btn btn-danger">
+            <i class="fas fa-trash-alt me-2"></i>Clear Inactive Categories
+        </a>
+        {% endif %}
+        <a href="{% url 'category_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Categories
+        </a>
+    </div>
+</div>
+
+{% if total_count %}
+<div class="alert alert-warning d-flex align-items-center mb-4">
+    <i class="fas fa-archive me-2"></i>
+    <span>{{ total_count }} category(ies) are currently inactive.</span>
+</div>
+{% endif %}
+
+<!-- SEARCH — no form, no submit, pure AJAX -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label mb-1">Search</label>
+                <input type="text" id="liveSearchInput" class="form-control"
+                       placeholder="Search category name..." autocomplete="off">
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetSearch()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-archive me-2 text-primary"></i>
+            Inactive Categories <span class="text-muted ms-1" style="font-weight:400;" id="resultCount">({{ total_count }})</span>
+        </div>
+        <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"></div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Category Name</th>
+                        <th>Type</th>
+                        <th>Products Affected</th>
+                        <th>Deactivated On</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="categoryTableBody">
+                    {% for cat in categories %}
+                    <tr style="opacity:.8;">
+                        <td class="text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:28px;height:28px;background:{{ cat.color }};border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;opacity:.6;">
+                                    <i class="fas {{ cat.icon }}"></i>
+                                </div>
+                                <span class="fw-600 text-muted">
+                                    <i class="fas fa-ban me-1 text-danger" style="font-size:.75rem;"></i>
+                                    {{ cat.name }}
+                                </span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if cat.category_type %}
+                            <span class="status-badge" style="background:{{ cat.color }}22;color:{{ cat.color }};border:1px solid {{ cat.color }}44;">
+                                {{ cat.category_type.name }}
+                            </span>
+                            {% else %}<span class="text-muted small">—</span>{% endif %}
+                        </td>
+                        <td>
+                            <span class="text-muted">
+                                <i class="fas fa-box me-1"></i>
+                                {{ cat.products.count }} product{{ cat.products.count|pluralize }}
+                            </span>
+                        </td>
+                        <td class="text-muted small">
+                            {{ cat.deactivated_at|date:"M d, Y"|default:"—" }}
+                            {% if cat.deactivated_at %} {{ cat.deactivated_at|time:"g:i A" }}{% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'category_restore_confirm' cat.pk %}" class="btn btn-sm btn-success">
+                                <i class="fas fa-undo me-1"></i>Restore
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
+                            No inactive categories. All categories are active.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'partials/pagination.html' %}
+
+<script>
+const searchInput = document.getElementById("liveSearchInput");
+const tbody       = document.getElementById("categoryTableBody");
+const resultCount = document.getElementById("resultCount");
+const spinner     = document.getElementById("searchSpinner");
+
+let debounceTimer = null;
+
+searchInput.addEventListener("input", scheduleSearch);
+searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") e.preventDefault();
+});
+
+function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 300);
+}
+
+function doSearch() {
+    const q = searchInput.value.trim();
+
+    if (!q) {
+        window.location.href = "{% url 'inactive_categories' %}";
+        return;
+    }
+
+    spinner.classList.remove("d-none");
+
+    fetch("{% url 'live_search_inactive_categories' %}?q=" + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(data => {
+            spinner.classList.add("d-none");
+            renderTable(data.categories);
+            resultCount.textContent = "(" + data.categories.length + ")";
+        })
+        .catch(err => {
+            spinner.classList.add("d-none");
+            console.error("Search error:", err);
+        });
+}
+
+function renderTable(categories) {
+    if (categories.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted py-5">
+                    <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
+                    No inactive categories found.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = categories.map((c, i) => `
+        <tr style="opacity:.8;">
+            <td class="text-muted">${i + 1}</td>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:28px;height:28px;background:${c.color};border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;opacity:.6;">
+                        <i class="fas ${c.icon}"></i>
+                    </div>
+                    <span class="fw-600 text-muted">
+                        <i class="fas fa-ban me-1 text-danger" style="font-size:.75rem;"></i>
+                        ${c.name}
+                    </span>
+                </div>
+            </td>
+            <td>${c.category_type ? `<span class="status-badge" style="background:${c.color}22;color:${c.color};border:1px solid ${c.color}44;">${c.category_type}</span>` : '<span class="text-muted small">—</span>'}</td>
+            <td><span class="text-muted"><i class="fas fa-box me-1"></i>${c.product_count} product${c.product_count !== 1 ? 's' : ''}</span></td>
+            <td class="text-muted small">${c.deactivated_at}</td>
+            <td>
+                <a href="/inventory/categories/${c.pk}/restore/confirm/" class="btn btn-sm btn-success">
+                    <i class="fas fa-undo me-1"></i>Restore
+                </a>
+            </td>
+        </tr>`).join('');
+}
+
+function resetSearch() {
+    searchInput.value = "";
+    window.location.href = "{% url 'inactive_categories' %}";
+}
+</script>
+{% endblock %}

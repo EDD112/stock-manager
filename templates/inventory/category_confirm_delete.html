@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Deactivate Category – StockManager{% endblock %}
+{% block page_title %}Deactivate Category{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deactivate Category
+            </div>
+            <div class="card-body text-center py-4">
+                <i class="fas fa-archive fa-3x text-danger opacity-50 mb-3"></i>
+                <h5>Deactivate "{{ category.name }}"?</h5>
+                <p class="text-muted mb-3">
+                    This category will be moved to <strong>Inactive Categories</strong>.
+                    It is <strong>not permanently deleted</strong> and can be restored at any time.
+                </p>
+                {% if product_count > 0 %}
+                <div class="alert alert-warning text-start mb-4">
+                    <i class="fas fa-box me-2"></i>
+                    <strong>{{ product_count }} product{{ product_count|pluralize }}</strong> under this category
+                    will also be moved to <strong>Inactive Products</strong>.
+                </div>
+                {% else %}
+                <div class="alert alert-info text-start mb-4">
+                    <i class="fas fa-info-circle me-2"></i>This category has no active products.
+                </div>
+                {% endif %}
+                <form method="post" class="d-flex gap-2 justify-content-center">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-archive me-2"></i>Yes, Deactivate
+                    </button>
+                    <a href="{% url 'category_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

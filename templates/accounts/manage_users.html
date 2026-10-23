@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users – StockManager{% endblock %}
+{% block page_title %}Manage Users{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap">
+    <div>
+        <h2><i class="fas fa-users-cog me-2 text-primary"></i>Manage Users</h2>
+        <p>Create and manage Stockman accounts.</p>
+    </div>
+    <a href="{% url 'create_stockman' %}" class="btn btn-primary">
+        <i class="fas fa-user-plus me-1"></i> Create Stockman
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-users me-2 text-primary"></i>All User Accounts
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Full Name</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Date Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in managed_users %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="user-avatar" style="width:30px;height:30px;font-size:.7rem;">{{ u.username|first|upper }}</div>
+                                <strong>{{ u.username }}</strong>
+                            </div>
+                        </td>
+                        <td>{{ u.first_name }} {{ u.last_name }}</td>
+                        <td>
+                            {% if u.profile.role == 'manager' %}
+                                <span class="status-badge badge-in-stock"><i class="fas fa-shield-alt me-1"></i>Manager</span>
+                            {% else %}
+                                <span class="status-badge badge-update"><i class="fas fa-user me-1"></i>Stockman</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if u.profile.is_account_active %}
+                                <span class="status-badge badge-in-stock">Active</span>
+                            {% else %}
+                                <span class="status-badge badge-out-stock">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted" style="font-size:.82rem;">{{ u.date_joined|date:"M d, Y" }}</td>
+                        <td>
+                            {% if u != request.user %}
+                            <div class="d-flex gap-1 flex-wrap">
+                                <!-- Edit profile -->
+                                <button class="btn btn-sm btn-outline-primary" title="Edit Profile"
+                                        data-bs-toggle="modal" data-bs-target="#editModal{{ u.pk }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <!-- Toggle status -->
+                                <button class="btn btn-sm {% if u.profile.is_account_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                                        title="{% if u.profile.is_account_active %}Deactivate{% else %}Activate{% endif %}"
+                                        data-bs-toggle="modal" data-bs-target="#toggleModal{{ u.pk }}">
+                                    <i class="fas fa-{% if u.profile.is_account_active %}ban{% else %}check{% endif %}"></i>
+                                </button>
+                                <!-- Reset password -->
+                                <button class="btn btn-sm btn-outline-secondary" title="Reset Password"
+                                        data-bs-toggle="modal" data-bs-target="#resetModal{{ u.pk }}">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                            </div>
+
+                            <!-- Edit Profile Modal -->
+                            <div class="modal fade" id="editModal{{ u.pk }}" tabindex="-1">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content" style="border-radius:12px; overflow:hidden; border:none;">
+                                        <div class="modal-header" style="background:#2563eb; border-bottom:none; padding:12px 16px;">
+                                            <h6 class="modal-title" style="color:#fff; font-weight:600; font-size:.9rem;">
+                                                <i class="fas fa-user-edit me-2"></i>Edit Profile — {{ u.username }}
+                                            </h6>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="{% url 'edit_user_profile' u.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body py-4">
+                                                <div class="text-center mb-3">
+                                                    <div class="user-avatar mx-auto" style="width:56px;height:56px;font-size:1.3rem;">{{ u.username|first|upper }}</div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label" style="font-size:.85rem; font-weight:600; color:var(--text-dark);">Username <span class="text-danger">*</span></label>
+                                                    <input type="text" name="username" class="form-control" value="{{ u.username }}" required>
+                                                </div>
+                                                <div class="row g-3 mb-3">
+                                                    <div class="col-6">
+                                                        <label class="form-label" style="font-size:.85rem; font-weight:600; color:var(--text-dark);">First Name</label>
+                                                        <input type="text" name="first_name" class="form-control" value="{{ u.first_name }}" placeholder="First name">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label" style="font-size:.85rem; font-weight:600; color:var(--text-dark);">Last Name</label>
+                                                        <input type="text" name="last_name" class="form-control" value="{{ u.last_name }}" placeholder="Last name">
+                                                    </div>
+                                                </div>
+                                                <div class="alert text-start small mb-0" style="background:#eff6ff; border-radius:8px; border:none; padding:12px 16px; color:#1e40af;">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    Only the profile details above will be updated. To change the password, use the <strong>Reset Password</strong> button instead.
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer" style="border-top:1px solid var(--border); justify-content:center; gap:8px; padding:12px 16px;">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-save me-2"></i>Save Changes
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Toggle Status Confirmation Modal -->
+                            <div class="modal fade" id="toggleModal{{ u.pk }}" tabindex="-1">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content" style="border-radius:12px; overflow:hidden; border:none;">
+                                        {% if u.profile.is_account_active %}
+                                        <!-- DEACTIVATE MODAL -->
+                                        <div class="modal-header" style="background:#d97706; border-bottom:none; padding:12px 16px;">
+                                            <h6 class="modal-title" style="color:#fff; font-weight:600; font-size:.9rem;">
+                                                <i class="fas fa-user-slash me-2"></i>Confirm Deactivation
+                                            </h6>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center py-4">
+                                            <i class="fas fa-user-slash fa-3x text-warning opacity-50 mb-3"></i>
+                                            <h5 style="color:var(--text-dark);">Deactivate "{{ u.username }}"?</h5>
+                                            <p class="text-muted mb-1">This account will be <strong>disabled</strong> and the user will not be able to log in.</p>
+                                            <p class="text-muted mb-4">The account is <strong>not permanently deleted</strong> — you can reactivate it anytime.</p>
+                                            <div class="alert text-start small mb-0" style="background:#fef9c3; border-radius:8px; border:none; padding:12px 16px; color:#92400e;">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                This is a <strong>soft deactivation</strong>. All user data and activity history are preserved.
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer" style="border-top:1px solid var(--border); justify-content:center; gap:8px; padding:12px 16px;">
+                                            <a href="{% url 'toggle_user_status' u.pk %}" class="btn btn-warning text-white">
+                                                <i class="fas fa-user-slash me-2"></i>Yes, Deactivate
+                                            </a>
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        </div>
+                                        {% else %}
+                                        <!-- ACTIVATE MODAL -->
+                                        <div class="modal-header" style="background:#16a34a; border-bottom:none; padding:12px 16px;">
+                                            <h6 class="modal-title" style="color:#fff; font-weight:600; font-size:.9rem;">
+                                                <i class="fas fa-user-check me-2"></i>Confirm Activation
+                                            </h6>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body text-center py-4">
+                                            <i class="fas fa-user-check fa-3x text-success opacity-50 mb-3"></i>
+                                            <h5 style="color:var(--text-dark);">Activate "{{ u.username }}"?</h5>
+                                            <p class="text-muted mb-4">This will <strong>re-enable</strong> the account and the user will be able to log in again.</p>
+                                            <div class="alert text-start small mb-0" style="background:#dcfce7; border-radius:8px; border:none; padding:12px 16px; color:#166534;">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                The user's data and activity history have been preserved and will be fully restored.
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer" style="border-top:1px solid var(--border); justify-content:center; gap:8px; padding:12px 16px;">
+                                            <a href="{% url 'toggle_user_status' u.pk %}" class="btn btn-success">
+                                                <i class="fas fa-user-check me-2"></i>Yes, Activate
+                                            </a>
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Reset Password Modal -->
+                            <div class="modal fade" id="resetModal{{ u.pk }}" tabindex="-1">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h6 class="modal-title"><i class="fas fa-key me-2"></i>Reset Password for "{{ u.username }}"</h6>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="{% url 'reset_user_password' u.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">New Password</label>
+                                                    <input type="password" name="new_password" class="form-control" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Confirm Password</label>
+                                                    <input type="password" name="confirm_password" class="form-control" required>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-save me-1"></i>Reset Password</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="d-flex gap-1 flex-wrap">
+                                <!-- Edit own profile -->
+                                <button class="btn btn-sm btn-outline-primary" title="Edit Profile"
+                                        data-bs-toggle="modal" data-bs-target="#editModal{{ u.pk }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <!-- Reset own password -->
+                                <button class="btn btn-sm btn-outline-secondary" title="Reset Password"
+                                        data-bs-toggle="modal" data-bs-target="#resetModal{{ u.pk }}">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                <span class="text-muted d-flex align-items-center" style="font-size:.78rem;">You</span>
+                            </div>
+
+                            <!-- Edit Profile Modal (own account) -->
+                            <div class="modal fade" id="editModal{{ u.pk }}" tabindex="-1">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content" style="border-radius:12px; overflow:hidden; border:none;">
+                                        <div class="modal-header" style="background:#2563eb; border-bottom:none; padding:12px 16px;">
+                                            <h6 class="modal-title" style="color:#fff; font-weight:600; font-size:.9rem;">
+                                                <i class="fas fa-user-edit me-2"></i>Edit Profile — {{ u.username }}
+                                            </h6>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="{% url 'edit_user_profile' u.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body py-4">
+                                                <div class="text-center mb-3">
+                                                    <div class="user-avatar mx-auto" style="width:56px;height:56px;font-size:1.3rem;">{{ u.username|first|upper }}</div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label" style="font-size:.85rem; font-weight:600; color:var(--text-dark);">Username <span class="text-danger">*</span></label>
+                                                    <input type="text" name="username" class="form-control" value="{{ u.username }}" required>
+                                                </div>
+                                                <div class="row g-3 mb-3">
+                                                    <div class="col-6">
+                                                        <label class="form-label" style="font-size:.85rem; font-weight:600; color:var(--text-dark);">First Name</label>
+                                                        <input type="text" name="first_name" class="form-control" value="{{ u.first_name }}" placeholder="First name">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label" style="font-size:.85rem; font-weight:600; color:var(--text-dark);">Last Name</label>
+                                                        <input type="text" name="last_name" class="form-control" value="{{ u.last_name }}" placeholder="Last name">
+                                                    </div>
+                                                </div>
+                                                <div class="alert text-start small mb-0" style="background:#eff6ff; border-radius:8px; border:none; padding:12px 16px; color:#1e40af;">
+                                                    <i class="fas fa-info-circle me-1"></i>
+                                                    Only the profile details above will be updated. To change the password, use the <strong>Reset Password</strong> button instead.
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer" style="border-top:1px solid var(--border); justify-content:center; gap:8px; padding:12px 16px;">
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-save me-2"></i>Save Changes
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Reset Password Modal (own account) -->
+                            <div class="modal fade" id="resetModal{{ u.pk }}" tabindex="-1">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h6 class="modal-title"><i class="fas fa-key me-2"></i>Reset Password for "{{ u.username }}"</h6>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="{% url 'reset_user_password' u.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">New Password</label>
+                                                    <input type="password" name="new_password" class="form-control" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Confirm Password</label>
+                                                    <input type="password" name="confirm_password" class="form-control" required>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-save me-1"></i>Reset Password</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

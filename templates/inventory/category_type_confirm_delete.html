@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Delete Category Type – StockManager{% endblock %}
+{% block page_title %}Delete Category Type{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Confirm Delete</div>
+            <div class="card-body text-center py-4">
+                <div style="width:56px;height:56px;background:{{ ct.color }};border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.5rem;color:white;">
+                    <i class="fas {{ ct.icon }}"></i>
+                </div>
+                <h5>Delete type "{{ ct.name }}"?</h5>
+                <p class="text-muted mb-1">{{ ct.categories.count }} categor{{ ct.categories.count|pluralize:"y,ies" }} use this type.</p>
+                <p class="text-muted mb-4">Those categories will become "Uncategorized" — they will <strong>not</strong> be deleted.</p>
+                <form method="post" class="d-flex gap-2 justify-content-center">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-2"></i>Yes, Delete</button>
+                    <a href="{% url 'category_type_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

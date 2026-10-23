@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}StockManager{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── DARK / LIGHT TOKENS ── */
+        [data-theme="light"] {
+            --sidebar-bg:    #0f172a; --sidebar-text: #94a3b8; --sidebar-hover: #1e293b;
+            --body-bg:       #f1f5f9; --card-bg:      #ffffff; --text-dark:    #1e293b;
+            --text-muted:    #64748b; --border:       #e2e8f0; --topbar-bg:    #ffffff;
+            --input-bg:      #ffffff; --input-border: #d1d5db; --table-hover:  #f1f5f9;
+            --table-head:    #f8fafc; --badge-text:   #1e293b;
+            --table-bg:      #ffffff; --table-cell:   #1e293b;
+            --modal-bg:      #ffffff; --select-bg:    #ffffff;
+            --btn-secondary-bg: #f1f5f9; --btn-secondary-text: #1e293b; --btn-secondary-border: #e2e8f0;
+            --dropdown-bg:   #ffffff; --dropdown-text: #1e293b; --dropdown-hover: #f1f5f9;
+        }
+        [data-theme="dark"] {
+            --sidebar-bg:    #020617; --sidebar-text: #64748b; --sidebar-hover: #0f172a;
+            --body-bg:       #0f172a; --card-bg:      #1e293b; --text-dark:    #e2e8f0;
+            --text-muted:    #94a3b8; --border:       #334155; --topbar-bg:    #1e293b;
+            --input-bg:      #0f172a; --input-border: #475569; --table-hover:  #273548;
+            --table-head:    #162032; --badge-text:   #e2e8f0;
+            --table-bg:      #1e293b; --table-cell:   #e2e8f0;
+            --modal-bg:      #1e293b; --select-bg:    #0f172a;
+            --btn-secondary-bg: #1e293b; --btn-secondary-text: #e2e8f0; --btn-secondary-border: #334155;
+            --dropdown-bg:   #1e293b; --dropdown-text: #e2e8f0; --dropdown-hover: #273548;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--body-bg); color: var(--text-dark); margin: 0; }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            position: fixed; top: 0; left: 0; width: 250px;
+            height: 100vh;
+            height: 100dvh; /* dvh excludes the browser URL bar on mobile — prevents cutoff */
+            background: var(--sidebar-bg); z-index: 1000;
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        /* Inner scroll container — this is what actually scrolls, not the sidebar itself */
+        .sidebar-scroll-area {
+            flex: 1;               /* fill remaining height inside the sidebar shell */
+            min-height: 0;         /* CRITICAL: lets flex child shrink below content size so overflow works */
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            /* NO display:flex — a plain block container is what lets overflow-y actually scroll */
+        }
+        .sidebar-brand { padding: 24px 20px 16px; border-bottom: 1px solid #1e293b; }
+        .sidebar-brand h4 { color: #fff; font-weight: 700; font-size: 1.1rem; margin: 0; }
+        .sidebar-brand h4 span { color: #3b82f6; }
+        .sidebar-brand small { color: var(--sidebar-text); font-size: .72rem; display: block; margin-top: 2px; }
+        .sidebar-section { padding: 16px 12px 4px; font-size: .65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #475569; }
+        .sidebar nav a {
+            display: flex; align-items: center; gap: 12px; padding: 10px 20px;
+            color: var(--sidebar-text); text-decoration: none; font-size: .875rem; font-weight: 500;
+            border-radius: 6px; margin: 2px 8px; transition: all .15s;
+        }
+        .sidebar nav a:hover { background: var(--sidebar-hover); color: #fff; }
+        .sidebar nav a.active { background: #2563eb; color: #fff; }
+        .sidebar nav a i { width: 18px; font-size: .9rem; text-align: center; }
+        .sidebar-bottom { flex-shrink: 0; padding: 12px; border-top: 1px solid #1e293b; }
+        .sidebar-bottom a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; color: #ef4444; text-decoration: none; font-size: .875rem; font-weight: 500; border-radius: 6px; }
+        .sidebar-bottom a:hover { background: #1e293b; }
+
+        /* ── MAIN ── */
+        .main-wrapper { margin-left: 250px; min-height: 100vh; display: flex; flex-direction: column; }
+        .topbar {
+            background: var(--topbar-bg); padding: 0 28px; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-title { font-weight: 600; font-size: 1rem; color: var(--text-dark); }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .user-badge {
+            display: flex; align-items: center; gap: 8px; background: var(--body-bg);
+            padding: 6px 14px; border-radius: 20px; font-size: .82rem; font-weight: 500; color: var(--text-dark);
+        }
+        .user-avatar { width: 28px; height: 28px; background: #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: .75rem; font-weight: 600; }
+
+        /* ── DARK MODE TOGGLE ── */
+        .dark-toggle {
+            background: var(--body-bg); border: 1px solid var(--border); color: var(--text-dark);
+            border-radius: 20px; padding: 5px 14px; font-size: .8rem; font-weight: 500;
+            cursor: pointer; display: flex; align-items: center; gap: 6px; text-decoration: none;
+            transition: all .2s;
+        }
+        .dark-toggle:hover { background: #2563eb; color: white; border-color: #2563eb; }
+
+        /* ── PAGE CONTENT ── */
+        .page-content { padding: 28px; flex: 1; }
+        .page-header { margin-bottom: 24px; }
+        .page-header h2 { font-size: 1.4rem; font-weight: 700; color: var(--text-dark); margin: 0 0 4px; }
+        .page-header p { color: var(--text-muted); margin: 0; font-size: .875rem; }
+
+        /* ── CARDS ── */
+        .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+        .card-header { background: transparent; border-bottom: 1px solid var(--border); padding: 16px 20px; font-weight: 600; font-size: .9rem; color: var(--text-dark); }
+        .card-body { padding: 20px; }
+
+        .stat-card { border-radius: 12px; padding: 20px; color: white; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; min-height: 100px; }
+        .stat-card .stat-icon { position: absolute; right: 16px; top: 16px; opacity: .25; font-size: 2.5rem; }
+        .stat-card .stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+        .stat-card .stat-label { font-size: .8rem; opacity: .85; margin-top: 6px; }
+        .stat-blue   { background: linear-gradient(135deg,#2563eb,#3b82f6); }
+        .stat-yellow { background: linear-gradient(135deg,#d97706,#f59e0b); }
+        .stat-red    { background: linear-gradient(135deg,#dc2626,#ef4444); }
+        .stat-orange { background: linear-gradient(135deg,#ea580c,#f97316); }
+        .stat-green  { background: linear-gradient(135deg,#16a34a,#22c55e); }
+        .stat-purple { background: linear-gradient(135deg,#7c3aed,#8b5cf6); }
+
+        /* ── TABLES ── */
+        .table { font-size: .875rem; margin: 0; --bs-table-bg: transparent; --bs-table-striped-bg: transparent; --bs-table-hover-bg: var(--table-hover); --bs-table-border-color: var(--border); --bs-table-color: var(--text-dark); }
+        .table th { font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); border-bottom: 2px solid var(--border) !important; padding: 10px 16px; background: var(--table-head) !important; color: var(--text-muted) !important; }
+        .table td { padding: 12px 16px; border-bottom: 1px solid var(--border) !important; vertical-align: middle; color: var(--text-dark); background-color: transparent; }
+        .table tbody tr { background-color: transparent; }
+        .table tbody tr:hover td { background-color: var(--table-hover) !important; }
+        .table tbody tr:last-child td { border-bottom: none !important; }
+        .table-responsive { background: var(--card-bg); border-radius: 0 0 12px 12px; }
+
+        /* ── BADGES ── */
+        .badge-in-stock  { background:#dcfce7;color:#15803d;border:1px solid #bbf7d0; }
+        .badge-low-stock { background:#fef9c3;color:#92400e;border:1px solid #fde68a; }
+        .badge-out-stock { background:#fee2e2;color:#991b1b;border:1px solid #fecaca; }
+        .badge-expired   { background:#fee2e2;color:#991b1b;border:1px solid #fecaca; }
+        .badge-expiring  { background:#fef3c7;color:#92400e;border:1px solid #fde68a; }
+        .badge-add       { background:#dcfce7;color:#15803d;border:1px solid #bbf7d0; }
+        .badge-remove    { background:#fee2e2;color:#991b1b;border:1px solid #fecaca; }
+        .badge-update    { background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe; }
+        .badge-delete    { background:#fce7f3;color:#9d174d;border:1px solid #fbcfe8; }
+        .status-badge { font-size:.73rem;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap;display:inline-flex;align-items:center; }
+
+        /* -- DARK MODE: BADGE OVERRIDES -- */
+        [data-theme="dark"] .badge-in-stock  { background:#14532d;color:#86efac;border-color:#166534; }
+        [data-theme="dark"] .badge-low-stock { background:#451a03;color:#fcd34d;border-color:#78350f; }
+        [data-theme="dark"] .badge-out-stock { background:#450a0a;color:#fca5a5;border-color:#7f1d1d; }
+        [data-theme="dark"] .badge-expired   { background:#450a0a;color:#fca5a5;border-color:#7f1d1d; }
+        [data-theme="dark"] .badge-expiring  { background:#451a03;color:#fcd34d;border-color:#78350f; }
+        [data-theme="dark"] .badge-add       { background:#14532d;color:#86efac;border-color:#166534; }
+        [data-theme="dark"] .badge-remove    { background:#450a0a;color:#fca5a5;border-color:#7f1d1d; }
+        [data-theme="dark"] .badge-update    { background:#1e3a5f;color:#93c5fd;border-color:#1e40af; }
+        [data-theme="dark"] .badge-delete    { background:#4a0d2e;color:#f9a8d4;border-color:#831843; }
+
+        /* -- DARK MODE: ALERT OVERRIDES -- */
+        [data-theme="dark"] .alert-success { background:#14532d;color:#86efac; }
+        [data-theme="dark"] .alert-danger  { background:#450a0a;color:#fca5a5; }
+        [data-theme="dark"] .alert-warning { background:#451a03;color:#fcd34d; }
+        [data-theme="dark"] .alert-info    { background:#1e3a5f;color:#93c5fd; }
+
+        /* -- BUTTONS -- */
+        .btn { border-radius: 8px; font-size: .875rem; font-weight: 500; }
+        .btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+        .btn-danger  { background: #dc2626; border-color: #dc2626; color: #fff !important; }
+        .btn-danger:hover  { background: #b91c1c; border-color: #b91c1c; color: #fff !important; }
+        .btn-success { background: #16a34a; border-color: #16a34a; color: #fff !important; }
+        .btn-success:hover { background: #15803d; border-color: #15803d; color: #fff !important; }
+        [data-theme="dark"] .btn-danger  { background: #dc2626; border-color: #dc2626; color: #fff !important; }
+        [data-theme="dark"] .btn-danger:hover  { background: #b91c1c; border-color: #b91c1c; color: #fff !important; }
+        [data-theme="dark"] .btn-success { background: #16a34a; border-color: #16a34a; color: #fff !important; }
+        [data-theme="dark"] .btn-success:hover { background: #15803d; border-color: #15803d; color: #fff !important; }
+        .btn-sm { padding: 4px 10px; font-size: .78rem; }
+
+        /* ── FORMS ── */
+        .form-control, .form-select {
+            background: var(--input-bg); border: 1px solid var(--input-border);
+            color: var(--text-dark); border-radius: 8px; font-size: .875rem; padding: 8px 12px;
+        }
+        .form-control:focus, .form-select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1); background: var(--input-bg); color: var(--text-dark); }
+        .form-label { font-weight: 500; font-size: .875rem; color: var(--text-dark); }
+
+        /* ── DATE INPUT: full field clickable + calendar icon theme ── */
+        input[type="date"].form-control {
+            cursor: pointer;
+            position: relative;
+        }
+        input[type="date"].form-control::-webkit-calendar-picker-indicator {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: auto; height: auto;
+            opacity: 0;
+            cursor: pointer;
+        }
+        /* Light mode calendar icon color */
+        [data-theme="light"] input[type="date"].form-control::-webkit-calendar-picker-indicator {
+            filter: invert(0.4);
+        }
+        /* Dark mode calendar icon — make it visible */
+        [data-theme="dark"] input[type="date"].form-control {
+            color-scheme: dark;
+        }
+        [data-theme="dark"] input[type="date"].form-control::-webkit-calendar-picker-indicator {
+            filter: invert(1) brightness(1.8);
+        }
+
+        /* ── ALERTS ── */
+        .alert { border-radius: 10px; font-size: .875rem; border: none; }
+        .alert-success { background: #dcfce7; color: #15803d; }
+        .alert-danger  { background: #fee2e2; color: #991b1b; }
+        .alert-warning { background: #fef9c3; color: #92400e; }
+        .alert-info    { background: #dbeafe; color: #1e40af; }
+
+        /* ── POPUP MODAL ── */
+        .popup-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center; }
+        .popup-overlay.show { display:flex; }
+        .popup-box { background:var(--card-bg); border-radius:16px; padding:28px; max-width:480px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+        .popup-box h5 { font-weight:700; margin-bottom:4px; color:var(--text-dark); }
+        .popup-alert-item { border-radius:8px; padding:12px 16px; margin-bottom:10px; }
+        .popup-alert-item.danger  { background:#fee2e2; border-left:4px solid #dc2626; }
+        .popup-alert-item.warning { background:#fef9c3; border-left:4px solid #d97706; }
+        .popup-alert-item .alert-title { font-weight:600; font-size:.875rem; margin-bottom:4px; }
+        .popup-alert-item .alert-title.danger  { color:#991b1b; }
+        .popup-alert-item .alert-title.warning { color:#92400e; }
+        .popup-alert-item ul { margin:0; padding-left:18px; font-size:.82rem; color:var(--text-muted); }
+
+        /* ── NOTIFICATION BELL ── */
+        .notif-bell { position:relative; cursor:pointer; background:var(--body-bg); border:1px solid var(--border); border-radius:20px; padding:5px 12px; color:var(--text-dark); text-decoration:none; display:flex; align-items:center; gap:4px; font-size:.85rem; }
+        .notif-bell:hover { background:#2563eb; color:#fff; border-color:#2563eb; }
+        .notif-badge { position:absolute; top:-4px; right:-4px; background:#ef4444; color:#fff; font-size:.65rem; font-weight:700; min-width:18px; height:18px; border-radius:9px; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+        .notif-dropdown { display:none; position:absolute; top:calc(100% + 8px); right:0; width:380px; max-height:480px; background:var(--card-bg); border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.15); z-index:200; overflow:hidden; display:flex; flex-direction:column; }
+        .notif-dropdown:not(.show) { display:none; }
+        .notif-dropdown.show { display:flex; }
+        .notif-dropdown-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:.82rem; font-weight:600; color:var(--text-dark); flex-shrink:0; }
+        .notif-dropdown-header .notif-actions { display:flex; gap:8px; align-items:center; }
+        .notif-dropdown-header .notif-actions a { font-size:.72rem; color:#2563eb; text-decoration:none; cursor:pointer; white-space:nowrap; }
+        .notif-dropdown-header .notif-actions a:hover { text-decoration:underline; }
+        .notif-dropdown-header .notif-actions a.clear-btn { color:#ef4444; }
+        .notif-dropdown-header .notif-actions a.clear-btn:hover { color:#dc2626; }
+        .notif-scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+        .notif-item { padding:10px 16px; border-bottom:1px solid var(--border); display:flex; gap:10px; align-items:flex-start; cursor:pointer; }
+        .notif-item:hover { background:var(--table-hover); }
+        .notif-item.unread { background:rgba(37,99,235,.04); }
+        .notif-item:last-child { border-bottom:none; }
+        .notif-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:.8rem; flex-shrink:0; }
+        .notif-icon.expired   { background:#fee2e2; color:#dc2626; }
+        .notif-icon.low_stock  { background:#fef9c3; color:#d97706; }
+        .notif-icon.out_of_stock { background:#fee2e2; color:#dc2626; }
+        .notif-icon.expiring_soon { background:#fef3c7; color:#ea580c; }
+        .notif-text { flex:1; min-width:0; }
+        .notif-text .notif-title { font-size:.8rem; font-weight:600; color:var(--text-dark); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .notif-text .notif-time { font-size:.7rem; color:var(--text-muted); margin-top:2px; }
+        .notif-empty { padding:32px 16px; text-align:center; color:var(--text-muted); font-size:.85rem; }
+        [data-theme="dark"] .notif-icon.expired   { background:#450a0a; color:#fca5a5; }
+        [data-theme="dark"] .notif-icon.low_stock  { background:#451a03; color:#fcd34d; }
+        [data-theme="dark"] .notif-icon.out_of_stock { background:#450a0a; color:#fca5a5; }
+        [data-theme="dark"] .notif-icon.expiring_soon { background:#451a03; color:#fcd34d; }
+
+        /* ── NOTIFICATION MOBILE: full-screen panel ── */
+        @media (max-width:768px) {
+            .notif-dropdown {
+                position:fixed !important;
+                top:0 !important; left:0 !important; right:0 !important; bottom:0 !important;
+                width:100% !important; max-height:100% !important;
+                border-radius:0 !important;
+                border:none !important;
+                z-index:9998;
+            }
+            .notif-dropdown-header {
+                padding:16px;
+                font-size:.9rem;
+                position:sticky; top:0;
+                background:var(--card-bg);
+                z-index:1;
+            }
+            .notif-scroll { padding-bottom:env(safe-area-inset-bottom, 0); }
+            .notif-item { padding:14px 16px; }
+            .notif-icon { width:36px; height:36px; font-size:.85rem; }
+            .notif-text .notif-title { font-size:.85rem; white-space:normal; }
+            .notif-text .notif-time { font-size:.75rem; }
+            .notif-mobile-close { display:flex !important; }
+        }
+        .notif-mobile-close { display:none; align-items:center; justify-content:center; width:32px; height:32px; background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--text-dark); cursor:pointer; font-size:.85rem; flex-shrink:0; }
+
+        /* ── BOOTSTRAP COMPONENT OVERRIDES (theme-aware) ── */
+
+        /* Transition on ALL elements for smooth theme switching */
+        *, *::before, *::after {
+            transition: background-color .25s ease, color .25s ease,
+                        border-color .25s ease, box-shadow .25s ease !important;
+        }
+
+        /* Outline / secondary buttons */
+        .btn-outline-secondary {
+            color: var(--text-dark) !important;
+            border-color: var(--border) !important;
+            background: transparent !important;
+        }
+        .btn-outline-secondary:hover {
+            background: var(--btn-secondary-bg) !important;
+            color: var(--text-dark) !important;
+        }
+        .btn-outline-danger { border-color: #ef4444; color: #ef4444; background: transparent; }
+        .btn-outline-danger:hover { background: #ef4444; color: #fff; }
+        .btn-outline-success { border-color: #22c55e; color: #22c55e; background: transparent; }
+        .btn-outline-success:hover { background: #22c55e; color: #fff; }
+
+        /* Bootstrap modal */
+        .modal-content {
+            background: var(--modal-bg) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--text-dark) !important;
+        }
+        .modal-header, .modal-footer {
+            border-color: var(--border) !important;
+            background: var(--modal-bg) !important;
+        }
+        .modal-title { color: var(--text-dark) !important; }
+
+        /* Bootstrap dropdown */
+        .dropdown-menu {
+            background: var(--dropdown-bg) !important;
+            border: 1px solid var(--border) !important;
+        }
+        .dropdown-item {
+            color: var(--dropdown-text) !important;
+        }
+        .dropdown-item:hover, .dropdown-item:focus {
+            background: var(--dropdown-hover) !important;
+            color: var(--text-dark) !important;
+        }
+        .dropdown-divider { border-color: var(--border) !important; }
+
+        /* Select2 / native select */
+        select.form-select option {
+            background: var(--select-bg);
+            color: var(--text-dark);
+        }
+
+        /* Pagination */
+        .page-link {
+            background: var(--card-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--text-dark) !important;
+        }
+        .page-link:hover { background: var(--table-hover) !important; }
+        .page-item.active .page-link { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
+        .page-item.disabled .page-link { background: var(--card-bg) !important; color: var(--text-muted) !important; }
+
+        /* List group */
+        .list-group-item {
+            background: var(--card-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--text-dark) !important;
+        }
+        .list-group-item:hover { background: var(--table-hover) !important; }
+
+        /* Nav tabs */
+        .nav-tabs { border-color: var(--border) !important; }
+        .nav-tabs .nav-link {
+            color: var(--text-muted) !important;
+            border-color: transparent !important;
+        }
+        .nav-tabs .nav-link:hover { border-color: var(--border) !important; color: var(--text-dark) !important; }
+        .nav-tabs .nav-link.active {
+            background: var(--card-bg) !important;
+            border-color: var(--border) var(--border) var(--card-bg) !important;
+            color: var(--text-dark) !important;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb { background: transparent; }
+        .breadcrumb-item a { color: #2563eb; }
+        .breadcrumb-item.active { color: var(--text-muted); }
+        .breadcrumb-item + .breadcrumb-item::before { color: var(--text-muted); }
+
+        /* Close / X button */
+        .btn-close { filter: var(--close-filter, none); }
+        [data-theme="dark"] .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+
+        /* Popup modal dark mode */
+        [data-theme="dark"] .popup-alert-item.danger  { background:#450a0a; border-left-color:#ef4444; }
+        [data-theme="dark"] .popup-alert-item.warning { background:#451a03; border-left-color:#f59e0b; }
+        [data-theme="dark"] .popup-alert-item .alert-title.danger  { color:#fca5a5; }
+        [data-theme="dark"] .popup-alert-item .alert-title.warning { color:#fcd34d; }
+        [data-theme="dark"] .popup-alert-item ul { color: var(--text-muted); }
+
+        /* text-* utility overrides for dark mode */
+        [data-theme="dark"] .text-dark  { color: var(--text-dark) !important; }
+        [data-theme="dark"] .text-muted { color: var(--text-muted) !important; }
+        [data-theme="dark"] .text-black { color: var(--text-dark) !important; }
+
+        /* ── DARK MODE: Card body & confirmation page text visibility ── */
+        [data-theme="dark"] .card-body { color: var(--text-dark); }
+        [data-theme="dark"] .card-body h5,
+        [data-theme="dark"] .card-body h4,
+        [data-theme="dark"] .card-body p,
+        [data-theme="dark"] .card-body li,
+        [data-theme="dark"] .card-body strong,
+        [data-theme="dark"] .card-body span:not(.status-badge):not(.btn) { color: var(--text-dark); }
+        [data-theme="dark"] .card-body .list-unstyled li { color: var(--text-dark); }
+        /* Alert text inside card-body (confirmation pages) */
+        [data-theme="dark"] .card-body .alert { color: inherit; }
+        [data-theme="dark"] .card-body .alert strong { color: inherit; }
+        [data-theme="dark"] .card-body .alert-danger { background:#450a0a; color:#fca5a5; }
+        [data-theme="dark"] .card-body .alert-warning { background:#451a03; color:#fcd34d; }
+        [data-theme="dark"] .card-body .alert-success { background:#14532d; color:#86efac; }
+        [data-theme="dark"] .card-body .alert-info { background:#1e3a5f; color:#93c5fd; }
+        /* btn-outline-secondary in dark mode */
+        [data-theme="dark"] .btn-outline-secondary { color: var(--text-dark) !important; border-color: var(--border) !important; }
+        [data-theme="dark"] .btn-outline-secondary:hover { background: var(--border) !important; color: var(--text-dark) !important; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--body-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        @media (max-width:768px) {
+
+            /* Body scroll lock — applied via JS when sidebar opens */
+            body.sidebar-open {
+                overflow: hidden !important;
+                position: fixed;
+                width: 100%;
+            }
+
+            /* ── SIDEBAR ── */
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform .25s ease;
+                z-index: 1100;
+                width: 280px;
+                height: 100vh;
+                height: 100dvh; /* excludes browser URL bar — critical fix for mobile cutoff */
+                overflow: hidden;
+            }
+            .sidebar.show { transform: translateX(0); }
+
+            /* The scroll area is the actual scroller on mobile */
+            .sidebar-scroll-area {
+                overflow-y: scroll !important;      /* force scroll even when content barely overflows */
+                overflow-x: hidden !important;
+                min-height: 0 !important;           /* must be set or flex shrink won't allow overflow */
+                -webkit-overflow-scrolling: touch;  /* momentum / inertia scrolling on iOS */
+                overscroll-behavior: contain;       /* don't leak scroll to the page behind */
+                touch-action: pan-y;                /* vertical swipe = scroll this element */
+                display: block !important;          /* block, NOT flex — flex kills overflow-y scrolling */
+            }
+
+            /* Every child inside must pass vertical swipe gestures up to the scroll container */
+            .sidebar-scroll-area * {
+                touch-action: pan-y;
+            }
+
+            /* Logout is pinned at bottom of sidebar shell, always visible */
+            .sidebar-bottom {
+                flex-shrink: 0;
+                padding: 16px;
+            }
+            .sidebar-bottom a { padding: 14px 16px; font-size: .95rem; }
+
+            .sidebar nav a {
+                padding: 14px 20px;
+                font-size: .95rem;
+                margin: 3px 8px;
+            }
+            .sidebar nav a i { font-size: 1rem; }
+            .sidebar-section { font-size: .7rem; padding: 20px 12px 6px; }
+
+            /* ── OVERLAY ── */
+            .sidebar-overlay {
+                display: none;
+                position: fixed; inset: 0;
+                background: rgba(0,0,0,.55);
+                z-index: 1099;
+            }
+            .sidebar-overlay.show { display: block; }
+
+            /* ── HAMBURGER BUTTON ── */
+            .hamburger-btn {
+                display: flex !important;
+                align-items: center; justify-content: center;
+                width: 40px; height: 40px;
+                background: transparent;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                cursor: pointer;
+                color: var(--text-dark);
+                font-size: 1.1rem;
+                flex-shrink: 0;
+            }
+
+            /* ── TOPBAR ── */
+            .topbar { padding: 0 12px; height: 56px; }
+            .topbar-title { font-size: .85rem; }
+            .dark-toggle span { display: none; }
+            .dark-toggle { padding: 6px 10px; }
+            .user-badge { display: none; }  /* hide username badge — saves space */
+
+            /* ── MOBILE LOGOUT IN TOPBAR ── */
+            .mobile-logout {
+                display: flex !important;
+                align-items: center; justify-content: center;
+                width: 40px; height: 40px;
+                background: rgba(239,68,68,.1);
+                border: 1px solid rgba(239,68,68,.3);
+                border-radius: 8px;
+                color: #ef4444;
+                text-decoration: none;
+                font-size: 1rem;
+                flex-shrink: 0;
+            }
+            .mobile-logout:hover { background: rgba(239,68,68,.2); color: #ef4444; }
+
+            /* ── MAIN WRAPPER ── */
+            .main-wrapper { margin-left: 0; }
+            .page-content { padding: 14px 12px; }
+
+            /* ── TABLES ── */
+            .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .table { min-width: 580px; font-size: .82rem; }
+            .table th, .table td { padding: 10px 12px; }
+
+            /* ── CARDS ── */
+            .card { border-radius: 10px; }
+            .card-body { padding: 14px; }
+            .card-header { padding: 12px 16px; font-size: .85rem; }
+
+            /* ── PAGE HEADER ── */
+            .page-header {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 10px;
+            }
+            .page-header h2 { font-size: 1.15rem; }
+            .page-header p { font-size: .82rem; }
+            .page-header .d-flex { flex-wrap: wrap; gap: 6px !important; }
+
+            /* ── BUTTONS ── */
+            .btn { font-size: .85rem; padding: 8px 14px; }
+            .btn-sm { font-size: .78rem; padding: 6px 10px; }
+
+            /* ── STAT CARDS — 2 per row ── */
+            .row .col-sm-3,
+            .row .col-md-3 { flex: 0 0 50%; max-width: 50%; }
+            .stat-card { padding: 14px; min-height: 80px; }
+            .stat-card .stat-value { font-size: 1.5rem; }
+            .stat-card .stat-label { font-size: .72rem; }
+
+            /* ── FILTER FORMS — stack vertically ── */
+            .row.g-2 .col-md-4,
+            .row.g-2 .col-md-3,
+            .row.g-2 .col-md-2,
+            .row.g-2 .col-md-1 { flex: 0 0 100%; max-width: 100%; }
+
+            /* ── FORM CONTROLS ── */
+            .form-control, .form-select {
+                font-size: .9rem;
+                padding: 10px 12px;
+                min-height: 44px;  /* Apple recommended tap target */
+            }
+            .form-label { font-size: .85rem; }
+
+            /* ── ALERTS ── */
+            .alert { font-size: .85rem; padding: 10px 14px; }
+
+            /* ── HIDE non-essential topbar text ── */
+            .topbar-title { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        }
+
+        /* Hamburger & mobile logout hidden on desktop */
+        .hamburger-btn { display: none; }
+        .mobile-logout { display: none; }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<script>
+    // Apply saved dark mode before render to avoid flash
+    const dm = localStorage.getItem('darkMode') === 'true';
+    if (dm) document.documentElement.setAttribute('data-theme', 'dark');
+</script>
+
+<!-- SIDEBAR OVERLAY (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-brand" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+            <h4><span>Stock</span>Manager</h4>
+            <small>Inventory Management System</small>
+        </div>
+        <button onclick="closeSidebar()" style="display:none;background:transparent;border:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;padding:4px;" id="sidebarCloseBtn">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <!-- Scroll area: everything below the brand header scrolls inside this -->
+    <div class="sidebar-scroll-area" id="sidebarScrollArea">
+        <div class="sidebar-section">Main</div>
+        <nav>
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                <i class="fas fa-chart-pie"></i> Dashboard
+            </a>
+        </nav>
+        <div class="sidebar-section">Inventory</div>
+        <nav>
+            <a href="{% url 'product_list' %}" class="{% if 'product' in request.resolver_match.url_name or 'stock' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="fas fa-boxes"></i> Products
+            </a>
+            <a href="{% url 'inactive_products' %}" class="{% if request.resolver_match.url_name == 'inactive_products' %}active{% endif %}">
+                <i class="fas fa-archive"></i> Inactive Products
+            </a>
+            <a href="{% url 'category_list' %}" class="{% if 'category' in request.resolver_match.url_name and 'inactive' not in request.resolver_match.url_name %}active{% endif %}">
+                <i class="fas fa-tags"></i> Categories
+            </a>
+            <a href="{% url 'category_type_list' %}" class="{% if 'category_type' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="fas fa-layer-group"></i> Category Types
+            </a>
+            <a href="{% url 'inactive_categories' %}" class="{% if request.resolver_match.url_name == 'inactive_categories' %}active{% endif %}">
+                <i class="fas fa-archive"></i> Inactive Categories
+            </a>
+        </nav>
+        <div class="sidebar-section">Tracking</div>
+        <nav>
+            {% if request.user.profile.role == 'manager' %}
+            <a href="{% url 'activity_log' %}" class="{% if request.resolver_match.url_name == 'activity_log' %}active{% endif %}">
+                <i class="fas fa-history"></i> Activity Logs
+            </a>
+            {% endif %}
+            <a href="{% url 'expiration_tracker' %}" class="{% if request.resolver_match.url_name == 'expiration_tracker' %}active{% endif %}">
+                <i class="fas fa-calendar-times"></i> Expiration Tracker
+            </a>
+            {% if request.user.profile.role == 'manager' %}
+            <a href="{% url 'login_activity' %}" class="{% if request.resolver_match.url_name == 'login_activity' %}active{% endif %}">
+                <i class="fas fa-sign-in-alt"></i> Login Activity
+            </a>
+            {% endif %}
+        </nav>
+        {% if request.user.profile.role == 'manager' %}
+        <div class="sidebar-section">Administration</div>
+        <nav>
+            <a href="{% url 'manage_users' %}" class="{% if request.resolver_match.url_name == 'manage_users' or request.resolver_match.url_name == 'create_stockman' %}active{% endif %}">
+                <i class="fas fa-users-cog"></i> Manage Users
+            </a>
+        </nav>
+        {% endif %}
+    </div><!-- /sidebar-scroll-area -->
+
+    <!-- Logout always pinned to bottom of sidebar — never inside the scroll area -->
+    <div class="sidebar-bottom">
+        <a href="{% url 'logout' %}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+</div>
+
+<!-- MAIN WRAPPER -->
+<div class="main-wrapper">
+    <div class="topbar">
+        <div class="d-flex align-items-center gap-3">
+            <!-- Hamburger (mobile only) -->
+            <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+        </div>
+        <div class="topbar-right">
+            <!-- NOTIFICATION BELL -->
+            <div style="position:relative;" id="notifContainer">
+                <a href="#" class="notif-bell" id="notifBell" onclick="toggleNotifDropdown(event)">
+                    <i class="fas fa-bell"></i>
+                    <span class="notif-badge" id="notifBadge" style="display:none;">0</span>
+                </a>
+                <div class="notif-dropdown" id="notifDropdown">
+                    <div class="notif-dropdown-header">
+                        <span><i class="fas fa-bell me-1"></i>Notifications</span>
+                        <div class="notif-actions">
+                            <a onclick="markAllRead(event)"><i class="fas fa-check-double me-1"></i>Mark all read</a>
+                            <a class="clear-btn" onclick="showClearModal(event)"><i class="fas fa-trash-alt me-1"></i>Clear all</a>
+                            <button class="notif-mobile-close" onclick="closeNotifDropdown(event)" title="Close">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="notif-scroll" id="notifList">
+                        <div class="notif-empty"><i class="fas fa-check-circle me-1"></i>No notifications</div>
+                    </div>
+                </div>
+            </div>
+            <!-- DARK MODE TOGGLE -->
+            <a href="#" class="dark-toggle" id="darkToggle" onclick="toggleDark(event)">
+                <i class="fas fa-moon" id="darkIcon"></i>
+                <span id="darkLabel">Dark Mode</span>
+            </a>
+            <div class="user-badge">
+                <div class="user-avatar">{% if request.user.first_name %}{{ request.user.first_name|first|upper }}{{ request.user.last_name|first|upper }}{% else %}{{ request.user.username|first|upper }}{% endif %}</div>
+                {% if request.user.first_name %}{{ request.user.first_name }} {{ request.user.last_name }}{% else %}{{ request.user.username }}{% endif %}
+                <span class="status-badge {% if request.user.profile.role == 'manager' %}badge-in-stock{% else %}badge-update{% endif %}" style="font-size:.65rem;padding:2px 8px;margin-left:2px;">
+                    {{ request.user.profile.get_role_display }}
+                </span>
+            </div>
+            <!-- LOGOUT (mobile only — always visible in topbar) -->
+            <a href="{% url 'logout' %}" class="mobile-logout" title="Logout">
+                <i class="fas fa-sign-out-alt"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="page-content">
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<!-- POPUP WARNING MODAL -->
+<div class="popup-overlay" id="popupOverlay">
+    <div class="popup-box">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>System Alerts</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="closePopup()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="popupAlertsList"></div>
+        <button class="btn btn-primary w-100 mt-2" onclick="closePopup()">Got it, Thanks!</button>
+    </div>
+</div>
+
+<!-- CLEAR NOTIFICATIONS MODAL -->
+<div class="modal fade" id="clearNotifModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="card border-danger m-0">
+                <div class="card-header bg-danger text-white">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirm Clear All Notifications
+                </div>
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-trash-alt fa-3x text-danger opacity-50 mb-3"></i>
+                    <h5>Clear all notifications?</h5>
+                    <p class="text-muted mb-3">
+                        All your notifications will be dismissed from your view.<br>
+                        This action only affects <strong>your account</strong>.<br>
+                        Other users' notifications will not be affected.
+                    </p>
+                    <div class="alert alert-info text-start mb-4" style="font-size:.82rem;">
+                        <i class="fas fa-info-circle me-2"></i>New notifications will still appear when inventory conditions are detected.
+                    </div>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="button" class="btn btn-danger" id="confirmClearBtn" onclick="executeClearAll()">
+                            <i class="fas fa-trash-alt me-2"></i>Yes, Clear All
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ── DARK MODE ──────────────────────────────────────────────────────────
+    // ── SIDEBAR TOGGLE (mobile) ────────────────────────────────────────────
+    function toggleSidebar() {
+        const sidebar  = document.getElementById('sidebar');
+        const overlay  = document.getElementById('sidebarOverlay');
+        const closeBtn = document.getElementById('sidebarCloseBtn');
+        sidebar.classList.toggle('show');
+        overlay.classList.toggle('show');
+        if (closeBtn) closeBtn.style.display = sidebar.classList.contains('show') ? 'block' : 'none';
+        // Lock body scroll (position:fixed is required for iOS Safari — overflow:hidden alone is not enough)
+        const isOpen = sidebar.classList.contains('show');
+        document.body.style.overflow  = isOpen ? 'hidden' : '';
+        document.body.classList.toggle('sidebar-open', isOpen);
+    }
+    function closeSidebar() {
+        const sidebar  = document.getElementById('sidebar');
+        const overlay  = document.getElementById('sidebarOverlay');
+        const closeBtn = document.getElementById('sidebarCloseBtn');
+        sidebar.classList.remove('show');
+        overlay.classList.remove('show');
+        if (closeBtn) closeBtn.style.display = 'none';
+        // Always restore body scroll when sidebar closes
+        document.body.style.overflow = '';
+        document.body.classList.remove('sidebar-open');
+    }
+    // Auto-close sidebar on mobile when a nav link is tapped (not when scrolling)
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.innerWidth <= 768) {
+            var touchStartY = 0;
+            var touchMoved  = false;
+            var scrollArea  = document.getElementById('sidebarScrollArea');
+            var overlay     = document.getElementById('sidebarOverlay');
+
+            // CRITICAL FOR IOS: overflow:hidden on body alone doesn't stop scroll on Safari.
+            // We must also prevent touchmove on the overlay (the dark backdrop).
+            if (overlay) {
+                overlay.addEventListener('touchmove', function (e) {
+                    e.preventDefault(); // stop page scroll bleeding through the overlay
+                }, { passive: false });
+            }
+
+            // Track whether the user is scrolling or tapping on the scroll area
+            if (scrollArea) {
+                scrollArea.addEventListener('touchstart', function (e) {
+                    touchStartY = e.touches[0].clientY;
+                    touchMoved  = false;
+                }, { passive: true });
+
+                scrollArea.addEventListener('touchmove', function (e) {
+                    if (Math.abs(e.touches[0].clientY - touchStartY) > 8) {
+                        touchMoved = true;
+                    }
+                    // Let the scroll area itself scroll — do NOT preventDefault here
+                }, { passive: true });
+            }
+
+            // Only close sidebar if the tap was on a nav link AND it wasn't a scroll
+            document.querySelectorAll('.sidebar nav a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    if (!touchMoved) closeSidebar();
+                });
+            });
+        }
+    });
+
+    function applyTheme(dark) {
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        document.getElementById('darkIcon').className = dark ? 'fas fa-sun' : 'fas fa-moon';
+        document.getElementById('darkLabel').textContent = dark ? 'Light Mode' : 'Dark Mode';
+        localStorage.setItem('darkMode', dark);
+    }
+    function toggleDark(e) {
+        e.preventDefault();
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        applyTheme(!isDark);
+    }
+    // Init on load
+    (function() {
+        const saved = localStorage.getItem('darkMode') === 'true';
+        applyTheme(saved);
+    })();
+
+    // ── POPUP WARNINGS ─────────────────────────────────────────────────────
+    function showPopup(alerts) {
+        if (!alerts || alerts.length === 0) return;
+        const list = document.getElementById('popupAlertsList');
+        list.innerHTML = '';
+        alerts.forEach(a => {
+            const items = a.items.map(i => `<li>${i}</li>`).join('');
+            list.innerHTML += `
+                <div class="popup-alert-item ${a.type}">
+                    <div class="alert-title ${a.type}"><i class="fas fa-${a.type==='danger'?'times-circle':'exclamation-circle'} me-1"></i>${a.title}</div>
+                    ${items ? `<ul>${items}</ul>` : ''}
+                </div>`;
+        });
+        document.getElementById('popupOverlay').classList.add('show');
+    }
+    function closePopup() {
+        document.getElementById('popupOverlay').classList.remove('show');
+    }
+
+    // ── LIVE SEARCH ────────────────────────────────────────────────────────
+    // Real-time search: auto-submits to server as user types (debounced 300ms).
+    // Searches the ENTIRE database — not just the current page.
+    // Shows a spinner immediately on keystroke so UI feels instant.
+    (function () {
+        document.addEventListener('DOMContentLoaded', function () {
+
+            // Date picker: open on any click inside the field
+            document.querySelectorAll('input[type="date"]').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    try { el.showPicker(); } catch (e) {}
+                });
+            });
+
+            // ── Inject a shared search-spinner style once ──────────────────
+            var spinnerStyle = document.createElement('style');
+            spinnerStyle.textContent = [
+                '.search-spinner {',
+                '  display: none; position: absolute; right: 10px; top: 50%;',
+                '  transform: translateY(-50%);',
+                '  width: 16px; height: 16px;',
+                '  border: 2px solid #cbd5e1;',
+                '  border-top-color: #2563eb;',
+                '  border-radius: 50%;',
+                '  animation: spin .6s linear infinite;',
+                '  pointer-events: none;',
+                '}',
+                '.search-input-wrap { position: relative; }',
+                '.search-input-wrap.searching .search-spinner { display: block; }',
+                '.search-input-wrap.searching input { padding-right: 32px; }',
+                '@keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }'
+            ].join('\n');
+            document.head.appendChild(spinnerStyle);
+
+            // ── Wire up every search input[name="q"] ──────────────────────
+            document.querySelectorAll('form[method="get"] input[name="q"]').forEach(function (input) {
+                var debounceTimer = null;
+
+                // Wrap input in a relative div so we can position the spinner
+                var wrap = document.createElement('div');
+                wrap.className = 'search-input-wrap';
+                input.parentNode.insertBefore(wrap, input);
+                wrap.appendChild(input);
+
+                var spinner = document.createElement('div');
+                spinner.className = 'search-spinner';
+                wrap.appendChild(spinner);
+
+                function doSubmit() {
+                    var form = input.closest('form');
+                    var pageInput = form.querySelector('input[name="page"]');
+                    if (pageInput) pageInput.value = '1';
+                    form.submit();
+                }
+
+                input.addEventListener('input', function () {
+                    var query = input.value.trim();
+
+                    // Visual feedback: border highlight + spinner immediately
+                    input.style.borderColor = query ? '#2563eb' : '';
+                    input.style.boxShadow   = query ? '0 0 0 3px rgba(37,99,235,.15)' : '';
+                    wrap.classList.toggle('searching', query.length > 0);
+
+                    // Debounce: 300ms after last keystroke → submit to server
+                    clearTimeout(debounceTimer);
+                    debounceTimer = setTimeout(doSubmit, 300);
+                });
+
+                // Enter key → submit immediately, no delay
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        clearTimeout(debounceTimer);
+                        wrap.classList.add('searching');
+                        doSubmit();
+                    }
+                });
+
+                // Escape key → clear search and reload page without query
+                input.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') {
+                        clearTimeout(debounceTimer);
+                        input.value = '';
+                        input.style.borderColor = '';
+                        input.style.boxShadow = '';
+                        wrap.classList.remove('searching');
+                        doSubmit();
+                    }
+                });
+            });
+
+            // ── Auto-submit dropdowns on change ───────────────────────────
+            document.querySelectorAll('form[method="get"] select').forEach(function (sel) {
+                sel.addEventListener('change', function () {
+                    var form = sel.closest('form');
+                    var pageInput = form.querySelector('input[name="page"]');
+                    if (pageInput) pageInput.value = '1';
+                    form.submit();
+                });
+            });
+        });
+    })();
+    // ── NOTIFICATION BELL ─────────────────────────────────────────────────
+    var __notifRole = '';
+    var __prevUnreadCount = -1;
+    var __isFirstLoad = true;
+
+    // ── SOUND + VIBRATE ──────────────────────────────────────────────────
+    var __notifAudio = null;
+    var __audioUnlocked = false;
+
+    function getNotifAudio() {
+        if (!__notifAudio) {
+            __notifAudio = new Audio('data:audio/wav;base64,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AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA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');
+            __notifAudio.volume = 0.5;
+            __notifAudio.preload = 'auto';
+        }
+        return __notifAudio;
+    }
+
+    function unlockAudio() {
+        if (__audioUnlocked) return;
+        var a = getNotifAudio();
+        a.volume = 0.01;
+        var p = a.play();
+        if (p && p.then) {
+            p.then(function() {
+                a.pause();
+                a.currentTime = 0;
+                a.volume = 0.5;
+                __audioUnlocked = true;
+                console.log('[Notif] Audio unlocked');
+            }).catch(function(e) {
+                console.log('[Notif] Audio unlock failed:', e.message);
+            });
+        }
+    }
+
+    // Unlock on ANY user interaction
+    ['click','touchstart','touchend','keydown'].forEach(function(evt) {
+        document.addEventListener(evt, function() { unlockAudio(); }, { once: true, passive: true });
+    });
+
+    function playNotifSound() {
+        try {
+            var a = getNotifAudio();
+            a.currentTime = 0;
+            a.volume = 0.5;
+            var p = a.play();
+            if (p && p.then) {
+                p.then(function() { console.log('[Notif] Sound played'); })
+                 .catch(function(e) { console.log('[Notif] Sound failed:', e.message); });
+            }
+        } catch(e) { console.log('[Notif] Sound error:', e); }
+    }
+
+    function vibrateDevice() {
+        if (navigator.vibrate) {
+            try { navigator.vibrate([200, 100, 300]); console.log('[Notif] Vibrated'); }
+            catch(e) {}
+        } else { console.log('[Notif] Vibration API not available'); }
+    }
+
+    function alertNewNotifications() {
+        console.log('[Notif] >>> ALERTING <<<');
+        playNotifSound();
+        vibrateDevice();
+        var bell = document.getElementById('notifBell');
+        if (bell) {
+            bell.style.transition = 'background .15s, border-color .15s';
+            bell.style.background = '#ef4444';
+            bell.style.borderColor = '#ef4444';
+            bell.style.color = '#fff';
+            setTimeout(function() {
+                bell.style.background = '';
+                bell.style.borderColor = '';
+                bell.style.color = '';
+            }, 1500);
+        }
+    }
+
+    // Test from browser console: testNotifAlert()
+    window.testNotifAlert = function() {
+        unlockAudio();
+        setTimeout(function() { alertNewNotifications(); }, 300);
+    };
+
+    // ── DROPDOWN ─────────────────────────────────────────────────────────
+    function toggleNotifDropdown(e) {
+        e.preventDefault(); e.stopPropagation();
+        unlockAudio();
+        var dd = document.getElementById('notifDropdown');
+        dd.classList.toggle('show');
+        if (dd.classList.contains('show')) {
+            fetchNotifications();
+            if (window.innerWidth <= 768) document.body.style.overflow = 'hidden';
+        } else {
+            if (window.innerWidth <= 768) document.body.style.overflow = '';
+        }
+    }
+
+    function closeNotifDropdown(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        document.getElementById('notifDropdown').classList.remove('show');
+        if (window.innerWidth <= 768) document.body.style.overflow = '';
+    }
+
+    // ── FETCH + RENDER ───────────────────────────────────────────────────
+    function fetchNotifications(isPolling) {
+        fetch('{% url "notification_list_api" %}')
+            .then(r => r.json())
+            .then(data => {
+                __notifRole = data.role || '';
+
+                var badge = document.getElementById('notifBadge');
+                var newCount = data.unread_count;
+                if (newCount > 0) {
+                    badge.textContent = newCount > 99 ? '99+' : newCount;
+                    badge.style.display = 'flex';
+                } else {
+                    badge.style.display = 'none';
+                }
+
+                // Alert on first load (after user taps) OR when count increases during polling
+                if (__isFirstLoad && newCount > 0) {
+                    console.log('[Notif] First load: ' + newCount + ' unread, waiting for tap...');
+                    var alerted = false;
+                    function firstAlert() {
+                        if (alerted) return;
+                        alerted = true;
+                        setTimeout(alertNewNotifications, 400);
+                    }
+                    document.addEventListener('click', firstAlert, { once: true });
+                    document.addEventListener('touchstart', firstAlert, { once: true });
+                } else if (!__isFirstLoad && newCount > __prevUnreadCount) {
+                    console.log('[Notif] New alerts: ' + __prevUnreadCount + ' -> ' + newCount);
+                    alertNewNotifications();
+                }
+
+                __prevUnreadCount = newCount;
+                __isFirstLoad = false;
+
+                var list = document.getElementById('notifList');
+                if (data.notifications.length === 0) {
+                    list.innerHTML = '<div class="notif-empty"><i class="fas fa-check-circle me-1"></i>No notifications</div>';
+                    return;
+                }
+                var iconMap = {
+                    'expired': 'fa-skull-crossbones',
+                    'low_stock': 'fa-exclamation-triangle',
+                    'out_of_stock': 'fa-times-circle',
+                    'expiring_soon': 'fa-calendar-times'
+                };
+                list.innerHTML = data.notifications.map(function(n) {
+                    return '<div class="notif-item ' + (n.is_read ? '' : 'unread') + '" onclick="markRead(' + n.id + ', this)">' +
+                        '<div class="notif-icon ' + n.type + '"><i class="fas ' + (iconMap[n.type] || 'fa-bell') + '"></i></div>' +
+                        '<div class="notif-text"><div class="notif-title">' + n.title + '</div><div class="notif-time">' + n.created_at + '</div></div></div>';
+                }).join('');
+            }).catch(function(e) { console.log('[Notif] Fetch error:', e); });
+    }
+
+    function markRead(id, el) {
+        fetch('{% url "mark_notification_read" notif_id=0 %}'.replace('/0/', '/' + id + '/'))
+            .then(function() {
+                if (el) el.classList.remove('unread');
+                var badge = document.getElementById('notifBadge');
+                var current = parseInt(badge.textContent) || 0;
+                if (current > 1) { badge.textContent = current - 1; } else { badge.style.display = 'none'; }
+                __prevUnreadCount = Math.max(0, __prevUnreadCount - 1);
+            });
+    }
+
+    function markAllRead(e) {
+        e.preventDefault(); e.stopPropagation();
+        fetch('{% url "mark_all_notifications_read" %}')
+            .then(function() {
+                document.querySelectorAll('.notif-item.unread').forEach(function(el) { el.classList.remove('unread'); });
+                document.getElementById('notifBadge').style.display = 'none';
+                __prevUnreadCount = 0;
+            });
+    }
+
+    function showClearModal(e) {
+        e.preventDefault(); e.stopPropagation();
+        // Close the notification dropdown first
+        closeNotifDropdown();
+        // Show the Bootstrap modal
+        var modal = new bootstrap.Modal(document.getElementById('clearNotifModal'));
+        modal.show();
+    }
+
+    function executeClearAll() {
+        fetch('{% url "clear_all_notifications" %}').then(r => r.json())
+            .then(function() {
+                document.getElementById('notifList').innerHTML = '<div class="notif-empty"><i class="fas fa-check-circle me-1"></i>No notifications</div>';
+                document.getElementById('notifBadge').style.display = 'none';
+                __prevUnreadCount = 0;
+                // Close the modal
+                var modalEl = document.getElementById('clearNotifModal');
+                var modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+            });
+    }
+
+    document.addEventListener('click', function(e) {
+        var c = document.getElementById('notifContainer'), dd = document.getElementById('notifDropdown');
+        if (c && dd && dd.classList.contains('show') && !c.contains(e.target)) closeNotifDropdown();
+    });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeNotifDropdown(); });
+    setInterval(function() { fetchNotifications(true); }, 30000);
+    document.addEventListener('DOMContentLoaded', function() { fetchNotifications(false); });
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

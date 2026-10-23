@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}Add Stock – {{ product.name }}{% endblock %}
+{% block page_title %}Add Stock{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2>Add Stock Batch</h2>
+        <p>Adding stock to <strong>{{ product.name }}</strong> creates a new batch — existing batches remain unchanged.</p>
+    </div>
+    <a href="{% url 'product_detail' product.pk %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Product
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Current Batches -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-layer-group me-2 text-primary"></i>Current Batches
+                <span class="badge bg-primary ms-2">{{ product.batches.count }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if product.batches.exists %}
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Batch</th>
+                                <th>Qty</th>
+                                <th>Expiry</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for batch in product.batches.all|dictsort:"date_added" %}
+                            <tr>
+                                <td class="text-muted small">#{{ batch.pk }}</td>
+                                <td><strong>{{ batch.quantity }}</strong></td>
+                                <td class="small">{{ batch.expiry_date }}</td>
+                                <td>
+                                    {% if batch.is_expired %}
+                                        <span class="badge bg-danger">Expired</span>
+                                    {% elif batch.is_expiring_soon %}
+                                        <span class="badge bg-warning text-dark">Soon</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Good</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="1">Total</th>
+                                <th>{{ product.total_quantity }}</th>
+                                <th colspan="2"></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">No batches yet.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Add New Batch Form -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-plus-circle me-2 text-success"></i>New Batch
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info small mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    This will create a <strong>new independent batch</strong>. Existing batches will not be modified.
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Quantity <span class="text-danger">*</span></label>
+                        {{ form.quantity }}
+                        {% if form.quantity.errors %}
+                            <div class="text-danger small mt-1">{{ form.quantity.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Expiry Date <span class="text-danger">*</span></label>
+                        {{ form.expiry_date }}
+                        {% if form.expiry_date.errors %}
+                            <div class="text-danger small mt-1">{{ form.expiry_date.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Notes</label>
+                        {{ form.notes }}
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus me-2"></i>Add Batch
+                        </button>
+                        <a href="{% url 'product_detail' product.pk %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

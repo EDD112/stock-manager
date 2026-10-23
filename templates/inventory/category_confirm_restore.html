@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}Restore Category – StockManager{% endblock %}
+{% block page_title %}Restore Category{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header text-success">
+                <i class="fas fa-undo me-2"></i>Confirm Restore
+            </div>
+            <div class="card-body text-center py-4">
+                <i class="fas fa-tags fa-3x text-success opacity-50 mb-3"></i>
+                <h5>Restore "{{ category.name }}"?</h5>
+                <p class="text-muted mb-3">
+                    This category will be moved back to the active list and become available again.
+                </p>
+                {% if product_count > 0 %}
+                <div class="alert alert-info text-start mb-4">
+                    <i class="fas fa-box me-2"></i>
+                    <strong>{{ product_count }} product{{ product_count|pluralize }}</strong> in this category
+                    will also be <strong>restored to active inventory</strong>.
+                </div>
+                {% else %}
+                <div class="alert alert-secondary text-start mb-4">
+                    <i class="fas fa-info-circle me-2"></i>This category has no inactive products to restore.
+                </div>
+                {% endif %}
+                <form method="post" action="{% url 'category_restore' category.pk %}" class="d-flex gap-2 justify-content-center">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-undo me-2"></i>Yes, Restore
+                    </button>
+                    <a href="{% url 'inactive_categories' %}" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

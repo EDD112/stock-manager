@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% block title %}Inactive Products – StockManager{% endblock %}
+{% block page_title %}Inactive Products{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start">
+    <div>
+        <h2>Inactive Products</h2>
+        <p>Products that have been deactivated. You can restore them at any time.</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if total_count %}
+        <a href="{% url 'clear_inactive_products' %}" class="btn btn-danger">
+            <i class="fas fa-trash-alt me-2"></i>Clear All Inactive
+        </a>
+        {% endif %}
+        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Products
+        </a>
+    </div>
+</div>
+
+{% if total_count %}
+<div class="alert alert-warning d-flex align-items-center mb-4">
+    <i class="fas fa-archive me-2"></i>
+    <span>{{ total_count }} product(s) are currently inactive.</span>
+</div>
+{% endif %}
+
+<!-- SEARCH — no form, no submit, pure AJAX -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label mb-1">Search</label>
+                <input type="text" id="liveSearchInput" class="form-control"
+                       placeholder="Search product name or category..." autocomplete="off">
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetSearch()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-archive me-2 text-primary"></i>
+            Inactive Products <span class="text-muted ms-1" style="font-weight:400;" id="resultCount">({{ total_count }})</span>
+        </div>
+        <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"></div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Last Quantity</th>
+                        <th>Status</th>
+                        <th>Expiry Date</th>
+                        <th>Deactivated On</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody">
+                    {% for product in products %}
+                    <tr style="opacity:.75;">
+                        <td class="text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                        <td>
+                            <span class="fw-600 text-muted">
+                                <i class="fas fa-ban me-1 text-danger" style="font-size:.75rem;"></i>
+                                {{ product.name }}
+                            </span>
+                        </td>
+                        <td>{{ product.category.name }}</td>
+                        <td>{{ product.quantity }}</td>
+                        <td>
+                            {% if product.status == 'In Stock' %}<span class="status-badge badge-in-stock">In Stock</span>
+                            {% elif product.status == 'Low Stock' %}<span class="status-badge badge-low-stock">Low Stock</span>
+                            {% else %}<span class="status-badge badge-out-stock">Out of Stock</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if product.is_expired %}
+                                <span class="text-danger fw-600">{{ product.expiry_date }}</span>
+                            {% else %}
+                                {{ product.expiry_date }}
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">
+                            {{ product.deactivated_at|date:"M d, Y"|default:"—" }} {{ product.deactivated_at|time:"g:i A" }}
+                        </td>
+                        <td>
+                            <a href="{% url 'product_restore_confirm' product.pk %}" class="btn btn-sm btn-success">
+                                <i class="fas fa-undo me-1"></i>Restore
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
+                            No inactive products. All products are active.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'partials/pagination.html' %}
+
+<script>
+const searchInput = document.getElementById("liveSearchInput");
+const tbody       = document.getElementById("productTableBody");
+const resultCount = document.getElementById("resultCount");
+const spinner     = document.getElementById("searchSpinner");
+
+let debounceTimer = null;
+
+searchInput.addEventListener("input", scheduleSearch);
+searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") e.preventDefault();
+});
+
+function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 300);
+}
+
+function doSearch() {
+    const q = searchInput.value.trim();
+
+    if (!q) {
+        window.location.href = "{% url 'inactive_products' %}";
+        return;
+    }
+
+    spinner.classList.remove("d-none");
+
+    fetch("{% url 'live_search_inactive_products' %}?q=" + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(data => {
+            spinner.classList.add("d-none");
+            renderTable(data.products);
+            resultCount.textContent = "(" + data.products.length + ")";
+        })
+        .catch(err => {
+            spinner.classList.add("d-none");
+            console.error("Search error:", err);
+        });
+}
+
+function renderTable(products) {
+    if (products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                    <i class="fas fa-check-circle fa-2x mb-2 d-block text-success opacity-50"></i>
+                    No inactive products found.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = products.map((p, i) => {
+        let badge = '';
+        if (p.status === 'In Stock')
+            badge = `<span class="status-badge badge-in-stock">In Stock</span>`;
+        else if (p.status === 'Low Stock')
+            badge = `<span class="status-badge badge-low-stock">Low Stock</span>`;
+        else
+            badge = `<span class="status-badge badge-out-stock">Out of Stock</span>`;
+
+        let expiry = p.expiry_date || '-';
+        if (p.is_expired)
+            expiry = `<span class="text-danger fw-600">${p.expiry_date}</span>`;
+
+        return `
+        <tr style="opacity:.75;">
+            <td class="text-muted">${i + 1}</td>
+            <td>
+                <span class="fw-600 text-muted">
+                    <i class="fas fa-ban me-1 text-danger" style="font-size:.75rem;"></i>
+                    ${p.name}
+                </span>
+            </td>
+            <td>${p.category}</td>
+            <td>${p.quantity}</td>
+            <td>${badge}</td>
+            <td>${expiry}</td>
+            <td class="text-muted small">${p.deactivated_at}</td>
+            <td>
+                <a href="/inventory/${p.pk}/restore/confirm/" class="btn btn-sm btn-success">
+                    <i class="fas fa-undo me-1"></i>Restore
+                </a>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function resetSearch() {
+    searchInput.value = "";
+    window.location.href = "{% url 'inactive_products' %}";
+}
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Edit Profile – StockManager{% endblock %}
+{% block page_title %}Edit Profile{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-user-edit me-2 text-primary"></i>Edit Profile</h2>
+    <p>Update your account information.</p>
+</div>
+
+<div class="row g-4">
+    <!-- Profile Info Card -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-id-card me-2 text-primary"></i>Personal Information</div>
+            <div class="card-body">
+                <form method="post" action="{% url 'edit_profile' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" value="{{ request.user.username }}" disabled>
+                        <div class="form-text">Username cannot be changed.</div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}" placeholder="Enter first name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ request.user.last_name }}" placeholder="Enter last name">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <input type="text" class="form-control" value="{{ request.user.profile.get_role_display }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date Joined</label>
+                        <input type="text" class="form-control" value="{{ request.user.date_joined|date:'M d, Y h:i A' }}" disabled>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Card -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header"><i class="fas fa-key me-2 text-primary"></i>Change Password</div>
+            <div class="card-body">
+                <form method="post" action="{% url 'change_own_password' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Current Password <span class="text-danger">*</span></label>
+                        <input type="password" name="current_password" class="form-control" placeholder="Enter current password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password <span class="text-danger">*</span></label>
+                        <input type="password" name="new_password" class="form-control" placeholder="Enter new password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password <span class="text-danger">*</span></label>
+                        <input type="password" name="confirm_password" class="form-control" placeholder="Confirm new password" required>
+                    </div>
+                    <div class="alert alert-info" style="font-size:.82rem;">
+                        <i class="fas fa-info-circle me-1"></i>
+                        You will remain logged in after changing your password.
+                    </div>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-key me-1"></i>Change Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% block title %}Activity Logs – StockManager{% endblock %}
+{% block page_title %}Activity Logs{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start">
+    <div>
+        <h2>Activity Logs</h2>
+        <p>Track all stock movements by stockmen. Records are preserved even if a product is deactivated.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'export_activity_excel' %}" class="btn btn-success">
+            <i class="fas fa-file-excel me-2"></i>Export Excel
+        </a>
+        <a href="{% url 'export_activity_pdf' %}" class="btn btn-danger">
+            <i class="fas fa-file-pdf me-2"></i>Export PDF
+        </a>
+        <a href="{% url 'clear_activity_logs' %}" class="btn btn-outline-danger">
+            <i class="fas fa-trash-alt me-2"></i>Clear All
+        </a>
+    </div>
+</div>
+
+<!-- FILTERS — no form, no submit, pure AJAX -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label mb-1">Search</label>
+                <input type="text" id="activitySearchInput" class="form-control"
+                       placeholder="Search product or notes..." autocomplete="off">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Stockman</label>
+                <select id="filterUser" class="form-select">
+                    <option value="">All Stockmen</option>
+                    {% for u in users %}
+                    <option value="{{ u.pk }}">{{ u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Product</label>
+                <select id="filterProduct" class="form-select">
+                    <option value="">All Products</option>
+                    {% for p in products %}
+                    <option value="{{ p.pk }}">{{ p.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-1">Action</label>
+                <select id="filterAction" class="form-select">
+                    <option value="">All Actions</option>
+                    <option value="ADD">Added</option>
+                    <option value="REMOVE">Removed</option>
+                    <option value="UPDATE">Updated</option>
+                    <option value="DELETE">Deleted</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2 align-items-end">
+                <button type="button" class="btn btn-outline-secondary flex-fill" onclick="resetActivityFilters()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+                <div id="activitySpinner" class="spinner-border spinner-border-sm text-primary d-none my-auto" role="status"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- LOGS TABLE -->
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-history me-2 text-primary"></i>
+        Activity Records <span class="text-muted ms-1" style="font-weight:400;" id="activityCount">({{ total_count }})</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Stockman</th>
+                        <th>Product</th>
+                        <th>Action</th>
+                        <th>Quantity</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="activityTableBody">
+                    {% for log in logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.date|date:"M d, Y" }}<br>{{ log.date|time:"g:i A" }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:26px;height:26px;font-size:.7rem;background:#2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;">
+                                    {{ log.user.username|first|upper }}
+                                </div>
+                                {{ log.user.username }}
+                            </div>
+                        </td>
+                        <td>
+                            {% if log.product %}
+                                <a href="{% url 'product_detail' log.product.pk %}" class="text-decoration-none">
+                                    {{ log.product.name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted fst-italic">
+                                    <i class="fas fa-box-open me-1 opacity-50"></i>
+                                    {{ log.product_name|default:"(Deleted Product)" }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge badge-{{ log.action|lower }}">{{ log.get_action_display }}</span>
+                        </td>
+                        <td><strong>{{ log.quantity }}</strong></td>
+                        <td class="text-muted small">{{ log.notes|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="fas fa-history fa-2x mb-2 d-block opacity-25"></i>
+                            No activity logs found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'partials/pagination.html' %}
+
+<script>
+const activityInput  = document.getElementById("activitySearchInput");
+const filterUser     = document.getElementById("filterUser");
+const filterProduct  = document.getElementById("filterProduct");
+const filterAction   = document.getElementById("filterAction");
+const tbody          = document.getElementById("activityTableBody");
+const activityCount  = document.getElementById("activityCount");
+const spinner        = document.getElementById("activitySpinner");
+
+let debounceTimer = null;
+
+activityInput.addEventListener("input",    scheduleSearch);
+filterUser.addEventListener("change",      scheduleSearch);
+filterProduct.addEventListener("change",   scheduleSearch);
+filterAction.addEventListener("change",    scheduleSearch);
+
+activityInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") e.preventDefault();
+});
+
+function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 300);
+}
+
+function doSearch() {
+    const q       = activityInput.value.trim();
+    const user    = filterUser.value;
+    const product = filterProduct.value;
+    const action  = filterAction.value;
+
+    if (!q && !user && !product && !action) {
+        window.location.href = "{% url 'activity_log' %}";
+        return;
+    }
+
+    spinner.classList.remove("d-none");
+
+    const url = "{% url 'live_search_activity' %}?q=" + encodeURIComponent(q)
+              + "&user="    + encodeURIComponent(user)
+              + "&product=" + encodeURIComponent(product)
+              + "&action="  + encodeURIComponent(action);
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            spinner.classList.add("d-none");
+            renderTable(data.logs);
+            activityCount.textContent = "(" + data.logs.length + ")";
+        })
+        .catch(err => {
+            spinner.classList.add("d-none");
+            console.error("Activity search error:", err);
+        });
+}
+
+function renderTable(logs) {
+    if (logs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted py-5">
+                    <i class="fas fa-history fa-2x mb-2 d-block opacity-25"></i>
+                    No activity logs found.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    const actionLabels = { ADD: 'Added', REMOVE: 'Removed', UPDATE: 'Updated', DELETE: 'Deleted' };
+
+    tbody.innerHTML = logs.map(log => `
+        <tr>
+            <td class="text-muted small">${log.date}<br>${log.time}</td>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:26px;height:26px;font-size:.7rem;background:#2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;">
+                        ${log.username.charAt(0).toUpperCase()}
+                    </div>
+                    ${log.username}
+                </div>
+            </td>
+            <td>
+                ${log.product_pk
+                    ? `<a href="/inventory/${log.product_pk}/detail/" class="text-decoration-none">${log.product_name}</a>`
+                    : `<span class="text-muted fst-italic"><i class="fas fa-box-open me-1 opacity-50"></i>${log.product_name}</span>`
+                }
+            </td>
+            <td><span class="status-badge badge-${log.action.toLowerCase()}">${actionLabels[log.action] || log.action}</span></td>
+            <td><strong>${log.quantity}</strong></td>
+            <td class="text-muted small">${log.notes || '—'}</td>
+        </tr>`).join('');
+}
+
+function resetActivityFilters() {
+    activityInput.value  = "";
+    filterUser.value     = "";
+    filterProduct.value  = "";
+    filterAction.value   = "";
+    window.location.href = "{% url 'activity_log' %}";
+}
+</script>
+{% endblock %}

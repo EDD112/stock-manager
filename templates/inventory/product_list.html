@@ -1,0 +1,267 @@
+{% extends 'base.html' %}
+{% block title %}Products – StockManager{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2>Product Inventory</h2>
+        <p>Manage all your products and stock levels.</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <div class="dropdown">
+            <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-file-export me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu">
+                <li>
+                    <a class="dropdown-item" href="{% url 'export_inventory_excel' %}">
+                        <i class="fas fa-file-excel me-2 text-success"></i>Export to Excel (.xlsx)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'export_inventory_pdf' %}">
+                        <i class="fas fa-file-pdf me-2 text-danger"></i>Export to PDF (.pdf)
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <a href="{% url 'inactive_products' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-archive me-1"></i>Inactive
+        </a>
+        <a href="{% url 'product_add' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Add Product
+        </a>
+    </div>
+</div>
+
+<!-- FILTERS - no form tag, no submit, 100% AJAX -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label mb-1">Search</label>
+                <input type="text" id="liveSearchInput" class="form-control"
+                       placeholder="Search name or category..." autocomplete="off">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1">Category</label>
+                <select id="filterCategory" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.pk }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1">Status</label>
+                <select id="filterStatus" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="In Stock">In Stock</option>
+                    <option value="Low Stock">Low Stock</option>
+                    <option value="Out of Stock">Out of Stock</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary flex-fill" onclick="resetFilters()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-boxes me-2 text-primary"></i>
+            Products <span class="text-muted ms-1" style="font-weight:400;" id="resultCount">({{ total_count }})</span>
+        </div>
+        <div id="searchSpinner" class="spinner-border spinner-border-sm text-primary d-none" role="status"></div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Quantity</th>
+                        <th>Status</th>
+                        <th>Expiry Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody">
+                    {% for product in products %}
+                    <tr>
+                        <td class="text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                        <td>
+                            <a href="{% url 'product_detail' product.pk %}" class="text-decoration-none fw-600">
+                                {{ product.name }}
+                            </a>
+                        </td>
+                        <td>{{ product.category.name }}</td>
+                        <td><strong>{{ product.quantity }}</strong></td>
+                        <td>
+                            {% if product.status == 'In Stock' %}<span class="status-badge badge-in-stock">In Stock</span>
+                            {% elif product.status == 'Low Stock' %}<span class="status-badge badge-low-stock">Low Stock</span>
+                            {% else %}<span class="status-badge badge-out-stock">Out of Stock</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if product.is_expired %}
+                                <span class="text-danger fw-600">{{ product.expiry_date }}</span>
+                                <span class="status-badge badge-expired ms-1">Expired</span>
+                            {% elif product.is_expiring_soon %}
+                                <span class="text-warning fw-600">{{ product.expiry_date }}</span>
+                                <span class="status-badge badge-expiring ms-1">Soon</span>
+                            {% else %}
+                                {{ product.expiry_date }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'stock_movement' product.pk %}" class="btn btn-sm btn-outline-success" title="Stock Movement">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </a>
+                                <a href="{% url 'product_deactivate' product.pk %}" class="btn btn-sm btn-outline-warning" title="Deactivate">
+                                    <i class="fas fa-archive"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="fas fa-box-open fa-2x mb-2 d-block opacity-25"></i>
+                            No products found.
+                            <a href="{% url 'product_add' %}">Add your first product</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── FULL AJAX LIVE SEARCH — no form, no submit, no reload ────────────────────
+
+const searchInput    = document.getElementById("liveSearchInput");
+const categorySelect = document.getElementById("filterCategory");
+const statusSelect   = document.getElementById("filterStatus");
+const tbody          = document.getElementById("productTableBody");
+const resultCount    = document.getElementById("resultCount");
+const spinner        = document.getElementById("searchSpinner");
+
+let debounceTimer = null;
+
+// All three filters trigger AJAX instantly
+searchInput.addEventListener("input",    scheduleSearch);
+categorySelect.addEventListener("change", scheduleSearch);
+statusSelect.addEventListener("change",   scheduleSearch);
+
+// Block Enter key — no form submit ever
+searchInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") e.preventDefault();
+});
+
+function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 300);
+}
+
+function doSearch() {
+    const q        = searchInput.value.trim();
+    const category = categorySelect.value;
+    const status   = statusSelect.value;
+
+    // If all filters are cleared, go back to normal paginated page
+    if (!q && !category && !status) {
+        window.location.href = "{% url 'product_list' %}";
+        return;
+    }
+
+    const url = "{% url 'live_search' %}?q=" + encodeURIComponent(q)
+              + "&category=" + encodeURIComponent(category)
+              + "&status="   + encodeURIComponent(status);
+
+    spinner.classList.remove("d-none");
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            spinner.classList.add("d-none");
+            renderTable(data.products);
+            resultCount.textContent = "(" + data.products.length + ")";
+        })
+        .catch(err => {
+            spinner.classList.add("d-none");
+            console.error("Live search error:", err);
+        });
+}
+
+function renderTable(products) {
+    if (products.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted py-5">
+                    <i class="fas fa-box-open fa-2x mb-2 d-block opacity-25"></i>
+                    No products found.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = products.map((p, i) => {
+        let badge = '';
+        if (p.status === 'In Stock')
+            badge = `<span class="status-badge badge-in-stock">In Stock</span>`;
+        else if (p.status === 'Low Stock')
+            badge = `<span class="status-badge badge-low-stock">Low Stock</span>`;
+        else
+            badge = `<span class="status-badge badge-out-stock">Out of Stock</span>`;
+
+        let expiry = p.expiry_date || '-';
+        if (p.is_expired)
+            expiry = `<span class="text-danger fw-600">${p.expiry_date}</span>
+                      <span class="status-badge badge-expired ms-1">Expired</span>`;
+        else if (p.is_expiring_soon)
+            expiry = `<span class="text-warning fw-600">${p.expiry_date}</span>
+                      <span class="status-badge badge-expiring ms-1">Soon</span>`;
+
+        return `
+        <tr>
+            <td class="text-muted">${i + 1}</td>
+            <td><a href="/inventory/${p.pk}/detail/" class="text-decoration-none fw-600">${p.name}</a></td>
+            <td>${p.category}</td>
+            <td><strong>${p.quantity}</strong></td>
+            <td>${badge}</td>
+            <td>${expiry}</td>
+            <td>
+                <div class="d-flex gap-1">
+                    <a href="/inventory/${p.pk}/add-stock/" class="btn btn-sm btn-outline-success" title="Stock Movement">
+                        <i class="fas fa-exchange-alt"></i>
+                    </a>
+                    <a href="/inventory/${p.pk}/deactivate/" class="btn btn-sm btn-outline-warning" title="Deactivate">
+                        <i class="fas fa-archive"></i>
+                    </a>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function resetFilters() {
+    searchInput.value    = "";
+    categorySelect.value = "";
+    statusSelect.value   = "";
+    doSearch();
+}
+</script>
+
+{% include "partials/pagination.html" %}
+{% endblock %}

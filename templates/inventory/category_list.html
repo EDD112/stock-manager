@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% block title %}Categories – StockManager{% endblock %}
+{% block page_title %}Categories{% endblock %}
+
+{% block extra_css %}
+<style>
+.cat-card {
+    border-radius: 12px; border: 1px solid var(--border); background: var(--card-bg);
+    padding: 20px; transition: transform .15s, box-shadow .15s; position: relative; overflow: hidden;
+}
+.cat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.1); }
+.cat-card::before { content:''; position:absolute; top:0;left:0;right:0; height:4px; background:var(--cat-color); }
+.cat-icon { width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:white;background:var(--cat-color);margin-bottom:12px; }
+.cat-name  { font-weight:700;font-size:1rem;color:var(--text-dark);margin:0 0 4px; }
+.cat-desc  { font-size:.82rem;color:var(--text-muted);margin-top:6px;min-height:20px; }
+.cat-count { font-size:.85rem;font-weight:600;color:var(--text-dark);margin-top:12px; }
+.cat-actions { margin-top:12px;display:flex;gap:6px; }
+.type-pills { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px; }
+.type-pill { padding:5px 14px;border-radius:20px;font-size:.8rem;font-weight:500;border:1px solid var(--border);background:var(--card-bg);color:var(--text-muted);cursor:pointer;text-decoration:none;transition:all .15s; }
+.type-pill:hover,.type-pill.active { background:#2563eb;color:white;border-color:#2563eb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2>Categories</h2>
+        <p>Organize products by category. Manage types to add custom ones.</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if inactive_count %}
+        <a href="{% url 'inactive_categories' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-archive me-2"></i>Inactive
+            <span class="badge bg-danger ms-1">{{ inactive_count }}</span>
+        </a>
+        {% endif %}
+        <a href="{% url 'category_type_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-layer-group me-2"></i>Manage Types
+        </a>
+        <a href="{% url 'category_add' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Add Category
+        </a>
+    </div>
+</div>
+
+<!-- CATEGORY SEARCH BAR — no form, no submit, pure AJAX -->
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col">
+                <label class="form-label mb-1">Search Categories</label>
+                <input type="text" id="categorySearchInput" class="form-control"
+                       placeholder="Search category name..." autocomplete="off">
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetCategorySearch()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+                <div id="catSpinner" class="spinner-border spinner-border-sm text-primary d-none my-auto" role="status"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TYPE FILTER PILLS -->
+<div class="type-pills">
+    <a href="{% url 'category_list' %}" class="type-pill {% if not selected_type %}active{% endif %}">All</a>
+    {% for ct in cat_types %}
+    <a href="?type={{ ct.name }}"
+       class="type-pill {% if selected_type == ct.name %}active{% endif %}"
+       style="{% if selected_type == ct.name %}background:{{ ct.color }};border-color:{{ ct.color }};{% endif %}">
+        <i class="fas {{ ct.icon }} me-1"></i>{{ ct.name }}
+    </a>
+    {% endfor %}
+</div>
+
+<!-- CATEGORY CARDS -->
+{% if categories %}
+<div class="row g-3 mb-4">
+    {% for cat in categories %}
+    <div class="col-sm-6 col-lg-4 col-xl-3">
+        <div class="cat-card" style="--cat-color:{{ cat.color }};">
+            <div class="cat-icon"><i class="fas {{ cat.icon }}"></i></div>
+            <div class="cat-name">{{ cat.name }}</div>
+            {% if cat.category_type %}
+            <span class="status-badge" style="font-size:.7rem;background:{{ cat.color }}22;color:{{ cat.color }};border:1px solid {{ cat.color }}44;">
+                {{ cat.category_type.name }}
+            </span>
+            {% else %}
+            <span class="status-badge badge-low-stock" style="font-size:.7rem;">Uncategorized</span>
+            {% endif %}
+            <div class="cat-desc">{{ cat.description|default:"No description." }}</div>
+            <div class="cat-count">
+                <i class="fas fa-boxes me-1" style="color:var(--cat-color);"></i>
+                {{ cat.products.count }} product{{ cat.products.count|pluralize }}
+            </div>
+            <div class="cat-actions">
+                <a href="{% url 'category_edit' cat.pk %}" class="btn btn-sm btn-outline-primary ms-auto" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <a href="{% url 'category_delete' cat.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card mb-4">
+    <div class="card-body text-center py-5 text-muted">
+        <i class="fas fa-tags fa-2x mb-2 d-block opacity-25"></i>
+        No categories found.
+        <a href="{% url 'category_add' %}">Add your first category</a>
+    </div>
+</div>
+{% endif %}
+
+<!-- SUMMARY TABLE -->
+{% if categories %}
+<div class="card">
+    <div class="card-header"><i class="fas fa-table me-2 text-primary"></i>Category Summary</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr><th>Category Name</th><th>Type</th><th>Description</th><th>Products</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                    {% for cat in categories %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:28px;height:28px;background:{{ cat.color }};border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;">
+                                    <i class="fas {{ cat.icon }}"></i>
+                                </div>
+                                <strong>{{ cat.name }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            {% if cat.category_type %}
+                            <span class="status-badge" style="background:{{ cat.color }}22;color:{{ cat.color }};border:1px solid {{ cat.color }}44;">
+                                {{ cat.category_type.name }}
+                            </span>
+                            {% else %}<span class="text-muted small">—</span>{% endif %}
+                        </td>
+                        <td class="text-muted small">{{ cat.description|default:"—" }}</td>
+                        <td><strong>{{ cat.products.count }}</strong></td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a href="{% url 'category_edit' cat.pk %}" class="btn btn-sm btn-outline-primary" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'category_delete' cat.pk %}" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% include 'partials/pagination.html' %}
+
+<script>
+const catInput   = document.getElementById("categorySearchInput");
+const catSpinner = document.getElementById("catSpinner");
+
+let catTimer = null;
+
+catInput.addEventListener("input", function() {
+    clearTimeout(catTimer);
+    catTimer = setTimeout(doCategorySearch, 300);
+});
+
+catInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") e.preventDefault();
+});
+
+function doCategorySearch() {
+    const q = catInput.value.trim();
+
+    if (!q) {
+        window.location.href = "{% url 'category_list' %}";
+        return;
+    }
+
+    catSpinner.classList.remove("d-none");
+
+    fetch("{% url 'live_search_categories' %}?q=" + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(data => {
+            catSpinner.classList.add("d-none");
+            renderCategoryCards(data.categories);
+            renderCategoryTable(data.categories);
+        })
+        .catch(err => {
+            catSpinner.classList.add("d-none");
+            console.error("Category search error:", err);
+        });
+}
+
+function renderCategoryCards(categories) {
+    const cardGrid = document.querySelector(".row.g-3.mb-4");
+    const emptyCard = document.querySelector(".card.mb-4 .card-body.text-center");
+
+    if (!cardGrid && !emptyCard) return;
+
+    const target = cardGrid || emptyCard.closest(".card.mb-4");
+
+    if (categories.length === 0) {
+        target.outerHTML = `
+        <div class="card mb-4">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="fas fa-tags fa-2x mb-2 d-block opacity-25"></i>
+                No categories found.
+            </div>
+        </div>`;
+        return;
+    }
+
+    const html = `<div class="row g-3 mb-4">` +
+        categories.map(c => `
+        <div class="col-sm-6 col-lg-4 col-xl-3">
+            <div class="cat-card" style="--cat-color:${c.color};">
+                <div class="cat-icon"><i class="fas ${c.icon}"></i></div>
+                <div class="cat-name">${c.name}</div>
+                ${c.category_type
+                    ? `<span class="status-badge" style="font-size:.7rem;background:${c.color}22;color:${c.color};border:1px solid ${c.color}44;">${c.category_type}</span>`
+                    : `<span class="status-badge badge-low-stock" style="font-size:.7rem;">Uncategorized</span>`}
+                <div class="cat-desc">${c.description || 'No description.'}</div>
+                <div class="cat-count">
+                    <i class="fas fa-boxes me-1" style="color:var(--cat-color);"></i>
+                    ${c.product_count} product${c.product_count !== 1 ? 's' : ''}
+                </div>
+                <div class="cat-actions">
+                    <a href="/inventory/categories/${c.pk}/edit/" class="btn btn-sm btn-outline-primary ms-auto" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="/inventory/categories/${c.pk}/delete/" class="btn btn-sm btn-outline-danger" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+            </div>
+        </div>`).join('') +
+    `</div>`;
+
+    target.outerHTML = html;
+}
+
+function renderCategoryTable(categories) {
+    const summaryCard = document.querySelector(".card .card-header");
+    if (!summaryCard) return;
+
+    const tbody = document.querySelector("table tbody");
+    if (!tbody) return;
+
+    if (categories.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">No categories found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = categories.map(c => `
+        <tr>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:28px;height:28px;background:${c.color};border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;">
+                        <i class="fas ${c.icon}"></i>
+                    </div>
+                    <strong>${c.name}</strong>
+                </div>
+            </td>
+            <td>
+                ${c.category_type
+                    ? `<span class="status-badge" style="background:${c.color}22;color:${c.color};border:1px solid ${c.color}44;">${c.category_type}</span>`
+                    : `<span class="text-muted small">—</span>`}
+            </td>
+            <td class="text-muted small">${c.description || '—'}</td>
+            <td><strong>${c.product_count}</strong></td>
+            <td>
+                <div class="d-flex gap-1">
+                    <a href="/inventory/categories/${c.pk}/edit/" class="btn btn-sm btn-outline-primary" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="/inventory/categories/${c.pk}/delete/" class="btn btn-sm btn-outline-danger" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </div>
+            </td>
+        </tr>`).join('');
+}
+
+function resetCategorySearch() {
+    catInput.value = "";
+    window.location.href = "{% url 'category_list' %}";
+}
+</script>
+{% endblock %}
+

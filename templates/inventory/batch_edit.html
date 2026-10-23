@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% block title %}Edit Batch #{{ batch.pk }} – {{ product.name }} – StockManager{% endblock %}
+{% block page_title %}Edit Batch{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2>Edit Batch #{{ batch.pk }}</h2>
+        <p>Editing a specific batch of <strong>{{ product.name }}</strong>. Product total will update automatically.</p>
+    </div>
+    <a href="{% url 'product_detail' product.pk %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>Back to Product
+    </a>
+</div>
+
+<div class="row g-4">
+
+    <!-- LEFT: Edit form -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-edit me-2 text-primary"></i>
+                Batch #{{ batch.pk }} Details
+            </div>
+            <div class="card-body">
+
+                <!-- Current batch info banner -->
+                <div class="alert alert-info mb-4" style="font-size:.875rem;">
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Editing Batch #{{ batch.pk }}</strong>
+                        {% if batches.0.pk == batch.pk %}
+                            <span class="badge bg-primary ms-1" style="font-size:.65rem;">Next (FIFO)</span>
+                        {% endif %}
+                    </div>
+                    <div class="text-muted small">
+                        Added: {{ batch.date_added|date:"M d, Y g:i A" }} by {{ batch.added_by.username|default:"—" }}
+                    </div>
+                </div>
+
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    <!-- Quantity -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            Quantity <span class="text-danger">*</span>
+                        </label>
+                        <input type="number"
+                               name="quantity"
+                               class="form-control {% if form.quantity.errors %}is-invalid{% endif %}"
+                               min="1"
+                               value="{{ form.quantity.value|default:batch.quantity }}"
+                               placeholder="Enter quantity"
+                               required>
+                        {% if form.quantity.errors %}
+                        <div class="text-danger small mt-1">
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ form.quantity.errors.0 }}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">Current: <strong>{{ batch.quantity }} pcs</strong></div>
+                    </div>
+
+                    <!-- Expiry Date -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            Expiry Date <span class="text-danger">*</span>
+                        </label>
+                        <input type="date"
+                               name="expiry_date"
+                               class="form-control {% if form.expiry_date.errors %}is-invalid{% endif %}"
+                               value="{{ form.expiry_date.value|default:batch.expiry_date|date:'Y-m-d' }}"
+                               required>
+                        {% if form.expiry_date.errors %}
+                        <div class="text-danger small mt-1">
+                            <i class="fas fa-exclamation-circle me-1"></i>{{ form.expiry_date.errors.0 }}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Current: <strong>{{ batch.expiry_date }}</strong>
+                            {% if batch.is_expired %}
+                                <span class="badge bg-danger ms-1">Expired</span>
+                            {% elif batch.is_expiring_soon %}
+                                <span class="badge bg-warning text-dark ms-1">Expiring Soon</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning small mb-4" style="font-size:.82rem;">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Saving will automatically update the product's <strong>total quantity</strong> and <strong>expiry tracking</strong>.
+                    </div>
+
+                    <p class="text-muted small mb-3"><span class="text-danger">*</span> All fields are required.</p>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Save Batch
+                        </button>
+                        <a href="{% url 'product_detail' product.pk %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT: All batches context panel -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-layer-group me-2 text-primary"></i>
+                All Batches for <strong>{{ product.name }}</strong>
+                <span class="text-muted ms-1" style="font-weight:400;">(FIFO order – oldest first)</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Batch #</th>
+                                <th>Quantity</th>
+                                <th>Expiry Date</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in batches %}
+                            <tr {% if b.pk == batch.pk %}style="border-left:3px solid #2563eb;background:var(--table-hover);"{% elif forloop.first %}style="border-left:3px solid #2563eb;"{% endif %}>
+                                <td class="small fw-600">
+                                    #{{ b.pk }}
+                                    {% if forloop.first %}
+                                        <span class="badge bg-primary ms-1" style="font-size:.6rem;">Next</span>
+                                    {% endif %}
+                                    {% if b.pk == batch.pk %}
+                                        <span class="badge bg-info ms-1" style="font-size:.6rem;">Editing</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ b.quantity }}</strong> pcs</td>
+                                <td class="small">{{ b.expiry_date }}</td>
+                                <td>
+                                    {% if b.is_expired %}
+                                        <span class="badge bg-danger" style="font-size:.7rem;">Expired</span>
+                                    {% elif b.is_expiring_soon %}
+                                        <span class="badge bg-warning text-dark" style="font-size:.7rem;">Soon</span>
+                                    {% else %}
+                                        <span class="badge bg-success" style="font-size:.7rem;">Good</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if b.pk == batch.pk %}
+                                        <span class="text-primary small"><i class="fas fa-pen me-1"></i>Editing now</span>
+                                    {% else %}
+                                        <a href="{% url 'batch_edit' product.pk b.pk %}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-edit me-1"></i>Edit
+                                        </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">No batches found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                        {% if batches %}
+                        <tfoot class="table-light">
+                            <tr>
+                                <th>Total</th>
+                                <th>{{ product.total_quantity }} pcs</th>
+                                <th colspan="3"></th>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product summary card -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="fas fa-box me-2 text-primary"></i>Product Summary
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="text-muted small">Product</div>
+                        <div class="fw-600">{{ product.name }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted small">Category</div>
+                        <div>{{ product.category.name|default:"—" }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted small">Total Quantity</div>
+                        <div class="fw-600">{{ product.total_quantity }} pcs</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-muted small">Status</div>
+                        <div>
+                            {% if product.status == 'In Stock' %}
+                                <span class="status-badge badge-in-stock">In Stock</span>
+                            {% elif product.status == 'Low Stock' %}
+                                <span class="status-badge badge-low-stock">Low Stock</span>
+                            {% else %}
+                                <span class="status-badge badge-out-stock">Out of Stock</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

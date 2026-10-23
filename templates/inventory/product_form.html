@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}{{ action }} Product – StockManager{% endblock %}
+{% block page_title %}{{ action }} Product{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ action }} Product</h2>
+    <p>{% if action == 'Add' %}Fill in the details to add a new product.{% else %}Update the product information below.{% endif %}</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-box me-2 text-primary"></i>Product Details
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label">
+                            {{ field.label }}
+                            <span class="text-danger">*</span>
+                        </label>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="text-danger small mt-1">
+                                <i class="fas fa-exclamation-circle me-1"></i>{{ field.errors.0 }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="alert alert-info small mt-3 mb-4" style="background:#eff6ff;color:#1d4ed8;border-radius:8px;padding:10px 14px;">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Status is automatically set: <strong>Out of Stock</strong> (0 qty), <strong>Low Stock</strong> (&lt;10), <strong>In Stock</strong> (≥10).
+                    </div>
+
+                    <p class="text-muted small mb-3"><span class="text-danger">*</span> All fields are required.</p>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>{{ action }} Product
+                        </button>
+                        <a href="{% url 'product_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

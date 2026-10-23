@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Clear Activity Logs – StockManager{% endblock %}
+{% block page_title %}Clear Activity Logs{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-exclamation-triangle me-2"></i>Confirm: Clear All Activity Logs
+            </div>
+            <div class="card-body">
+                {% if count > 0 %}
+                <div class="alert alert-danger d-flex align-items-start gap-3 mb-4">
+                    <i class="fas fa-trash-alt fa-lg mt-1"></i>
+                    <div>
+                        <strong>This action cannot be undone.</strong><br>
+                        You are about to permanently delete <strong>{{ count }} activity log{{ count|pluralize }}</strong>.
+                    </div>
+                </div>
+                <ul class="list-unstyled mb-4" style="font-size:.95rem;">
+                    <li class="mb-2"><i class="fas fa-times-circle text-danger me-2"></i>All {{ count }} log{{ count|pluralize }} will be <strong>permanently deleted</strong>.</li>
+                    <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Products will <strong>not</strong> be affected.</li>
+                </ul>
+                <div class="d-flex gap-3">
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-2"></i>Yes, Clear All Logs
+                        </button>
+                    </form>
+                    <a href="{% url 'activity_log' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Cancel
+                    </a>
+                </div>
+                {% else %}
+                <div class="alert alert-info d-flex align-items-center gap-3 mb-4">
+                    <i class="fas fa-info-circle fa-lg"></i>
+                    <span>There are no activity logs to clear.</span>
+                </div>
+                <a href="{% url 'activity_log' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

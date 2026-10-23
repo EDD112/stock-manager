@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Restore Product – StockManager{% endblock %}
+{% block page_title %}Restore Product{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header {% if category_inactive %}text-danger{% else %}text-success{% endif %}">
+                <i class="fas {% if category_inactive %}fa-exclamation-triangle{% else %}fa-undo{% endif %} me-2"></i>
+                {% if category_inactive %}Cannot Restore Product{% else %}Confirm Restore{% endif %}
+            </div>
+            <div class="card-body text-center py-4">
+                {% if category_inactive %}
+                    <i class="fas fa-lock fa-3x text-danger opacity-50 mb-3"></i>
+                    <h5>Cannot Restore "{{ product.name }}"</h5>
+                    <div class="alert alert-danger text-start mt-3 mb-4">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        The category <strong>"{{ product.category.name }}"</strong> is currently inactive.
+                        You must restore the category first before restoring this product.
+                    </div>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="{% url 'inactive_categories' %}" class="btn btn-warning">
+                            <i class="fas fa-tag me-2"></i>Go to Inactive Categories
+                        </a>
+                        <a href="{% url 'inactive_products' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                {% else %}
+                    <i class="fas fa-box-open fa-3x text-success opacity-50 mb-3"></i>
+                    <h5>Restore "{{ product.name }}"?</h5>
+                    <p class="text-muted mb-4">
+                        This product will be moved back to the active inventory and become visible again.
+                    </p>
+                    <form method="post" action="{% url 'product_restore' product.pk %}" class="d-flex gap-2 justify-content-center">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-undo me-2"></i>Yes, Restore
+                        </button>
+                        <a href="{% url 'inactive_products' %}" class="btn btn-outline-secondary">Cancel</a>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

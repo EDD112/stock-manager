@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block title %}Login Activity – StockManager{% endblock %}
+{% block page_title %}Login Activity{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start">
+    <div>
+        <h2>Login Activity</h2>
+        <p>Track who logged in, when they logged out, and how long each session lasted.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'export_login_excel' %}" class="btn btn-success">
+            <i class="fas fa-file-excel me-2"></i>Export Excel
+        </a>
+        <a href="{% url 'export_login_pdf' %}" class="btn btn-danger">
+            <i class="fas fa-file-pdf me-2"></i>Export PDF
+        </a>
+        <a href="{% url 'clear_login_activity' %}" class="btn btn-outline-danger">
+            <i class="fas fa-trash-alt me-2"></i>Clear All
+        </a>
+    </div>
+</div>
+
+<!-- FILTERS — no form, no submit, pure AJAX -->
+<div class="card mb-4">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label mb-1">Search</label>
+                <input type="text" id="loginSearchInput" class="form-control"
+                       placeholder="Search username or IP..." autocomplete="off">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label mb-1">Filter by User</label>
+                <select id="filterLoginUser" class="form-select">
+                    <option value="">All Users</option>
+                    {% for u in users %}
+                    <option value="{{ u.pk }}">{{ u.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2 align-items-end">
+                <button type="button" class="btn btn-outline-secondary flex-fill" onclick="resetLoginFilters()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+                <div id="loginSpinner" class="spinner-border spinner-border-sm text-primary d-none my-auto" role="status"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="card">
+    <div class="card-header">
+        <i class="fas fa-user-clock me-2 text-primary"></i>
+        Session Records <span class="text-muted ms-1" style="font-weight:400;" id="loginCount">({{ total_count }})</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Login</th>
+                        <th>Logout</th>
+                        <th>Duration</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody id="loginTableBody">
+                    {% for log in logs %}
+                    <tr>
+                        <td class="text-muted">{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:28px;height:28px;background:#2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:.72rem;font-weight:700;flex-shrink:0;">
+                                    {{ log.user.username|first|upper }}
+                                </div>
+                                <strong>{{ log.user.username }}</strong>
+                            </div>
+                        </td>
+                        <td style="white-space:nowrap;">
+                            <div class="text-muted small">{{ log.login_time|date:"M d, Y" }}</div>
+                            <span class="status-badge badge-add mt-1">
+                                <i class="fas fa-sign-in-alt me-1"></i>{{ log.login_time|time:"g:i A" }}
+                            </span>
+                        </td>
+                        <td style="white-space:nowrap;">
+                            {% if log.logout_time %}
+                                <div class="text-muted small">{{ log.logout_time|date:"M d, Y" }}</div>
+                                <span class="status-badge badge-remove mt-1">
+                                    <i class="fas fa-sign-out-alt me-1"></i>{{ log.logout_time|time:"g:i A" }}
+                                </span>
+                            {% else %}
+                                <span class="status-badge badge-update">
+                                    <i class="fas fa-circle me-1" style="font-size:.5rem;vertical-align:middle;"></i>Active
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if log.duration %}
+                                <span class="text-muted" style="white-space:nowrap;"><i class="fas fa-hourglass-half me-1"></i>{{ log.duration }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted" style="white-space:nowrap;">{{ log.ip_address|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-5">
+                            <i class="fas fa-user-clock fa-2x mb-2 d-block opacity-25"></i>
+                            No session records yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'partials/pagination.html' %}
+
+<script>
+const loginInput   = document.getElementById("loginSearchInput");
+const filterUser   = document.getElementById("filterLoginUser");
+const tbody        = document.getElementById("loginTableBody");
+const loginCount   = document.getElementById("loginCount");
+const spinner      = document.getElementById("loginSpinner");
+
+let debounceTimer = null;
+
+loginInput.addEventListener("input",   scheduleSearch);
+filterUser.addEventListener("change",  scheduleSearch);
+
+loginInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") e.preventDefault();
+});
+
+function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 300);
+}
+
+function doSearch() {
+    const q    = loginInput.value.trim();
+    const user = filterUser.value;
+
+    if (!q && !user) {
+        window.location.href = "{% url 'login_activity' %}";
+        return;
+    }
+
+    spinner.classList.remove("d-none");
+
+    const url = "{% url 'live_search_login' %}?q=" + encodeURIComponent(q)
+              + "&user=" + encodeURIComponent(user);
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            spinner.classList.add("d-none");
+            renderTable(data.logs);
+            loginCount.textContent = "(" + data.logs.length + ")";
+        })
+        .catch(err => {
+            spinner.classList.add("d-none");
+            console.error("Login search error:", err);
+        });
+}
+
+function renderTable(logs) {
+    if (logs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted py-5">
+                    <i class="fas fa-user-clock fa-2x mb-2 d-block opacity-25"></i>
+                    No session records found.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    tbody.innerHTML = logs.map((log, i) => `
+        <tr>
+            <td class="text-muted">${i + 1}</td>
+            <td>
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width:28px;height:28px;background:#2563eb;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:.72rem;font-weight:700;flex-shrink:0;">
+                        ${log.username.charAt(0).toUpperCase()}
+                    </div>
+                    <strong>${log.username}</strong>
+                </div>
+            </td>
+            <td style="white-space:nowrap;">
+                <div class="text-muted small">${log.login_date}</div>
+                <span class="status-badge badge-add mt-1">
+                    <i class="fas fa-sign-in-alt me-1"></i>${log.login_time}
+                </span>
+            </td>
+            <td style="white-space:nowrap;">
+                ${log.logout_time
+                    ? `<div class="text-muted small">${log.logout_date}</div>
+                       <span class="status-badge badge-remove mt-1">
+                           <i class="fas fa-sign-out-alt me-1"></i>${log.logout_time}
+                       </span>`
+                    : `<span class="status-badge badge-update">
+                           <i class="fas fa-circle me-1" style="font-size:.5rem;vertical-align:middle;"></i>Active
+                       </span>`
+                }
+            </td>
+            <td>
+                ${log.duration
+                    ? `<span class="text-muted" style="white-space:nowrap;"><i class="fas fa-hourglass-half me-1"></i>${log.duration}</span>`
+                    : `<span class="text-muted">—</span>`
+                }
+            </td>
+            <td class="text-muted" style="white-space:nowrap;">${log.ip_address || '—'}</td>
+        </tr>`).join('');
+}
+
+function resetLoginFilters() {
+    loginInput.value = "";
+    filterUser.value = "";
+    window.location.href = "{% url 'login_activity' %}";
+}
+</script>
+{% endblock %}
